@@ -29,6 +29,7 @@ No more infinite money from automated iron or gold farms: prices continuously re
   - **Create**: Kinetic rotational speed scales dock trading frequency; Display Links project live quotes onto flapped display boards; interactive 3D Ponder scenes included.
   - **CC: Tweaked**: Full Lua peripheral API to build algorithmic trading bots, automated arbitrage routers, and wall-mounted stock tickers.
 - **Data-Driven & Datapack Support**: Easily add custom commodities, configure delivery contracts, or trigger dynamic market events via standard Minecraft datapacks (`data/ammora/...`).
+- **Operator Console & Audit (/ammora admin)**: Complete management GUI for server administrators: inspect and adjust player balances, trigger macroeconomic events and crises, tune AMM bonding curves, and audit full transaction ledgers.
 
 ---
 
@@ -127,6 +128,22 @@ end
 ```
 
 *For complete Lua API specifications and bot templates, see [CC: Tweaked Guide](docs/CC_TWEAKED_GUIDE_EN.md).*
+
+---
+
+## Operator Admin Console (/ammora admin)
+
+Server operators have access to a built-in economic administration console:
+```
+/ammora admin
+```
+*Requires operator permissions (OP level 2+).*
+
+The console features 4 management tabs:
+1. **Balances**: View all registered server accounts with live player name / UUID search. Set exact balances, grant or deduct CBX, wipe accounts, or use quick presets (+100, +500, +1000 CBX). Online players receive immediate chat notifications upon balance modifications.
+2. **Events**: Trigger dynamic macroeconomic crises and booms (Inflation, Gold Rush, Iron Demand Spike) with custom duration in Minecraft days. Active events feature a gold status card with an early termination button (`[⏹ Terminate Early]`).
+3. **AMM Rates**: Real-time liquidity pool calibration for any traded commodity. Manually adjust base price $P_0$, daily demand modifiers (+/- %), inventory reserve stock ($S$), or reset modifiers to 0%.
+4. **Transaction Logs**: Centralized audit ledger tracking all economic actions (vending machine sales, drone deliveries, RFQ escrow orders, and exchange trades) with filtering by party names and item titles.
 
 ---
 

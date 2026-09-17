@@ -26,7 +26,13 @@ Welcome to **Ammora** — a mod that transforms the Minecraft economy into a dyn
    - [Peripheral Connection](#41-peripheral-connection)
    - [Lua API Reference](#42-lua-api-reference)
    - [Automated Trading Bots](#43-automated-trading-bots)
-5. [Tips & Frequently Asked Questions (FAQ)](#5-tips--frequently-asked-questions-faq)
+5. [Operator & Admin Console (/ammora admin)](#5-operator--admin-console-ammora-admin)
+   - [Security & Access](#51-security--access)
+   - [Balances Management](#52-balances-management)
+   - [Economic Events](#53-economic-events)
+   - [AMM Rates & Reserve Calibration](#54-amm-rates--reserve-calibration)
+   - [Transaction Audit Logs](#55-transaction-audit-logs)
+6. [Tips & Frequently Asked Questions (FAQ)](#6-tips--frequently-asked-questions-faq)
 
 ---
 
@@ -151,7 +157,49 @@ Refer to the [CC: Tweaked Guide](CC_TWEAKED_GUIDE_EN.md) for complete Lua method
 
 ---
 
-## 5. Tips & FAQ
+## 5. Operator & Admin Console (/ammora admin)
+
+Ammora provides server operators with a secure, graphical command center to monitor and orchestrate the economy:
+
+### 5.1. Security & Access
+- **Command:** `/ammora admin`.
+- **Permission:** Operator permission level 2+ (`source.hasPermission(2)`). Non-operators cannot execute the command or access GUI payloads.
+- Critical operations are logged to the dedicated server console.
+
+### 5.2. Balances Management
+- **Search:** Search all server player accounts by username or string UUID.
+- **Account Inspection:** View real-time balance in CBX, reputation tier (Lvl I–V), REP points, and UUID.
+- **Actions:**
+  - `[Set]`: Overwrite account balance with an exact CBX amount.
+  - `[+ Grant]`: Increment balance by specified amount.
+  - `[- Deduct]`: Decrement balance safely (clamped to 0.00).
+  - `[Wipe]`: Reset account balance to 0.00 CBX.
+  - **Quick Presets:** Instant `[+100]`, `[+500]`, `[+1000]` reward shortcuts.
+- **Notifications:** Online players immediately receive a personal system message notifying them of balance adjustments.
+
+### 5.3. Economic Events
+- **Active Event Card:** When an event is active, a golden banner displays the event title, days remaining, and modifier details.
+- **Early Termination `[⏹ Terminate Early]`:** Abruptly cancel active anomalies to restore normal market parameters.
+- **Template Catalog:** Browse available macroeconomic events (e.g., Gold Rush, Diamond Famine) with multiplier percentages.
+- **Trigger `[▶ Launch]`:** Specify duration in Minecraft days and trigger server-wide economic events.
+
+### 5.4. AMM Rates & Reserve Calibration
+- **Commodity Directory:** Inspect all traded resources with current live spot prices.
+- **Reserve Inspection:** View exact spot price, warehouse stock ($S$), and target reserve ($S_{target}$).
+- **Parameter Controls:**
+  - `[Set P₀]`: Calibrate base equilibrium price ($P_0$).
+  - `[Set Mod]`: Apply temporary daily demand modifiers (+/- %).
+  - `[Set Stock]`: Adjust physical warehouse inventory ($S$) to test or balance liquidity pools.
+  - `[Reset Modifier (0%)]`: Instantly reset daily modifiers to neutral 0%.
+
+### 5.5. Transaction Audit Logs
+- **Comprehensive Ledger:** Unified chronological audit of local shop sales, drone deliveries, RFQ escrow fulfillment, and exchange trades.
+- **Filter:** Search by buyer/seller username, item name, or transaction category.
+- **Pagination:** Smooth paginated review across server trade history.
+
+---
+
+## 6. Tips & FAQ
 
 - **Q: Why is iron price negative?**  
   *A: The exchange warehouse is overflowing beyond its maximum capacity ($S_{max}$). Buy up the excess iron for cheap to restore positive prices!*
