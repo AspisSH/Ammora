@@ -1,0 +1,11 @@
+{
+  "id": "gold_reserve",
+  "title": "Government Order: Strategic Gold Reserve",
+  "titleKey": "contract.exchange.gold_reserve.title",
+  "resourceId": "minecraft:gold_ingot",
+  "minAmount": 32,
+  "maxAmount": 64,
+  "pricePerUnit": 50.0,
+  "collateralCbx": 200.0,
+  "requiredReputation": 250
+}

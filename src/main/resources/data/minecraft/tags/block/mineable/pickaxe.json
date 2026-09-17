@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "exchange:exchange_terminal",
+    "exchange:trade_dock",
+    "exchange:purchase_dock",
+    "exchange:player_shop"
+  ]
+}

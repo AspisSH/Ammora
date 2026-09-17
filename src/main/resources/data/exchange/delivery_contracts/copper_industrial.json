@@ -1,0 +1,11 @@
+{
+  "id": "copper_industrial",
+  "title": "Government Order: Industrial Copper",
+  "titleKey": "contract.exchange.copper_industrial.title",
+  "resourceId": "minecraft:copper_ingot",
+  "minAmount": 128,
+  "maxAmount": 256,
+  "pricePerUnit": 10.0,
+  "collateralCbx": 150.0,
+  "requiredReputation": 100
+}

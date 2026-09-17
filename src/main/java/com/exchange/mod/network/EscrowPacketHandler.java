@@ -1,0 +1,548 @@
+package com.exchange.mod.network;
+
+import com.exchange.mod.ExchangeMod;
+import com.exchange.mod.core.MarketEngine;
+import com.exchange.mod.db.BuyRequestRecord;
+import com.exchange.mod.db.CommunityQuestRecord;
+import com.exchange.mod.db.MarketTxRecord;
+import com.exchange.mod.db.PlayerAccount;
+import com.exchange.mod.util.ExchangeLang;
+import com.exchange.mod.util.InventoryHelper;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.neoforged.neoforge.network.PacketDistributor;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+
+/**
+ * Handles RFQ buy requests with escrow, community quests/bounties,
+ * unclaimed delivery buffers, and marketplace catalog data dispatching.
+ */
+public final class EscrowPacketHandler {
+
+    private EscrowPacketHandler() {}
+
+    public static void sendMarketplaceData(ServerPlayer player, String statusMsg, boolean isError) {
+        if (ExchangeMod.getMarketDAO() == null) return;
+        try {
+            PlayerAccount acc = ExchangeMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
+            double balance = acc != null ? acc.getBalanceCbx() : 0.0;
+            int repLevel = acc != null ? acc.getRepLevel() : 1;
+
+            var rawSlots = ExchangeMod.getMarketDAO().getAllActiveCatalogSlots();
+            List<MarketplaceDataPayload.MarketplaceSlotItem> catalog = new ArrayList<>();
+            for (var s : rawSlots) {
+                String shopName = s.getShopName() != null ? s.getShopName() : ExchangeLang.guiStr("shop.default_name_anonymous");
+                String ownerName = s.getOwnerName() != null ? s.getOwnerName() : ExchangeLang.guiStr("shop.default_owner_anonymous");
+                double fee = Math.max(1.0, Math.round(s.getPriceCbx() * 0.02 * 100.0) / 100.0);
+
+                ItemStack itemStack = ItemStack.EMPTY;
+                if (s.getItemNbt() != null && !s.getItemNbt().isEmpty()) {
+                    try {
+                        net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(s.getItemNbt());
+                        itemStack = ItemStack.parseOptional(player.serverLevel().registryAccess(), tag);
+                    } catch (Exception ignored) {}
+                }
+                if (itemStack.isEmpty() && s.getItemId() != null && !s.getItemId().isEmpty()) {
+                    try {
+                        Item it = BuiltInRegistries.ITEM.get(ResourceLocation.parse(s.getItemId()));
+                        if (it != Items.AIR) {
+                            itemStack = new ItemStack(it, Math.max(1, s.getStockCount()));
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                List<String> lore = new ArrayList<>();
+                if (!itemStack.isEmpty()) {
+                    if (itemStack.isDamageableItem()) {
+                        int maxDmg = itemStack.getMaxDamage();
+                        int curDmg = itemStack.getDamageValue();
+                        int remain = maxDmg - curDmg;
+                        double pct = Math.round((remain * 100.0 / maxDmg) * 10.0) / 10.0;
+                        String color = pct < 25.0 ? "§c" : (pct < 60.0 ? "§e" : "§a");
+                        lore.add(ExchangeLang.guiStr("shop.durability", color + remain, "§a" + maxDmg, color + pct + "%"));
+                    }
+
+                    try {
+                        List<Component> lines = itemStack.getTooltipLines(
+                                Item.TooltipContext.of(player.serverLevel()),
+                                player,
+                                net.minecraft.world.item.TooltipFlag.Default.NORMAL
+                        );
+                        for (Component c : lines) {
+                            String str = c.getString();
+                            if (!str.equalsIgnoreCase(s.getDisplayName()) && !str.isBlank()) {
+                                lore.add(str);
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                catalog.add(new MarketplaceDataPayload.MarketplaceSlotItem(
+                        s.getShopId(), shopName, ownerName, s.getSlotIndex(), s.getItemId(), s.getDisplayName(),
+                        s.getPriceCbx(), s.getStockCount(), fee, lore
+                ));
+            }
+
+            var rawShops = ExchangeMod.getMarketDAO().getAllBroadcastShops();
+            List<MarketplaceDataPayload.MarketplaceShopItem> shops = new ArrayList<>();
+            for (var sh : rawShops) {
+                int activeCount = sh.getActiveSlotCount();
+                shops.add(new MarketplaceDataPayload.MarketplaceShopItem(
+                        sh.getShopId(), sh.getShopName(), sh.getOwnerUuid(), sh.getOwnerName(),
+                        sh.getDimension(), sh.getPosX(), sh.getPosY(), sh.getPosZ(),
+                        activeCount, sh.getTotalSales()
+                ));
+            }
+
+            var rawReqs = ExchangeMod.getMarketDAO().getActiveBuyRequests();
+            List<MarketplaceDataPayload.BuyRequestItem> buyReqs = new ArrayList<>();
+            for (var r : rawReqs) {
+                boolean isOwn = r.getBuyerUuid().equals(player.getUUID());
+                buyReqs.add(new MarketplaceDataPayload.BuyRequestItem(
+                        r.getRequestId(), r.getBuyerUuid(), r.getBuyerName(), r.getItemId(), r.getDisplayName(),
+                        r.getUnitPrice(), r.getRemainingAmount(), r.getEscrowCbx(), isOwn
+                ));
+            }
+
+            var rawQuests = ExchangeMod.getMarketDAO().getAllQuests();
+            List<MarketplaceDataPayload.CommunityQuestItem> questItems = new ArrayList<>();
+            for (var q : rawQuests) {
+                boolean isOwn = q.getCreatorUuid().equals(player.getUUID());
+                boolean isAssignedToMe = q.getWorkerUuid() != null && q.getWorkerUuid().equals(player.getUUID());
+                questItems.add(new MarketplaceDataPayload.CommunityQuestItem(
+                        q.getQuestId(), q.getCreatorUuid(), q.getCreatorName(),
+                        q.getTitle(), q.getDescription(), q.getRewardCbx(),
+                        q.getStatus(), q.getWorkerUuid(), q.getWorkerName(),
+                        q.getCreatedAt(), isOwn, isAssignedToMe
+                ));
+            }
+
+            var rawTxs = ExchangeMod.getMarketDAO().getRecentMarketTransactions(30);
+            List<MarketplaceDataPayload.MarketTxItem> txs = new ArrayList<>();
+            for (var t : rawTxs) {
+                txs.add(new MarketplaceDataPayload.MarketTxItem(
+                        t.getTxId(), t.getTxType(), t.getBuyerName(), t.getSellerName(),
+                        t.getItemName(), t.getAmount(), t.getTotalCbx(), t.getFeeCbx(), t.getTimestamp()
+                ));
+            }
+
+            var rawDeliveries = ExchangeMod.getMarketDAO().getUnclaimedDeliveries(player.getUUID());
+            List<MarketplaceDataPayload.DeliveryBufferItem> deliveries = new ArrayList<>();
+            for (var d : rawDeliveries) {
+                var it = BuiltInRegistries.ITEM.get(ResourceLocation.parse(d.resourceId()));
+                String displayName = (it != null && it != Items.AIR) ? it.getDescription().getString() : d.resourceId();
+                deliveries.add(new MarketplaceDataPayload.DeliveryBufferItem(
+                        d.deliveryId(), d.resourceId(), displayName, d.amount(), d.timestamp(), d.itemNbt()
+                ));
+            }
+
+            PacketDistributor.sendToPlayer(player, new MarketplaceDataPayload(
+                    balance, repLevel, catalog, shops, buyReqs, questItems, txs, deliveries, statusMsg, isError
+            ));
+        } catch (Exception e) {
+            ExchangeMod.LOGGER.error("Failed to send marketplace data to " + player.getName().getString(), e);
+        }
+    }
+
+    public static void handleBuyRequestAction(ServerPlayer player, ServerboundBuyRequestPayload payload) {
+        if (ExchangeMod.getMarketDAO() == null) return;
+        try {
+            switch (payload.action()) {
+                case "CREATE" -> {
+                    double unitPrice = Math.max(0.01, payload.unitPrice());
+                    int amount = Math.max(1, payload.amount());
+                    double totalEscrow = unitPrice * amount;
+
+                    PlayerAccount acc = ExchangeMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
+                    if (acc == null || acc.getBalanceCbx() < totalEscrow) {
+                        sendMarketplaceData(player, ExchangeLang.notify("rfq_escrow_insufficient", MarketEngine.round2(totalEscrow)), true);
+                        return;
+                    }
+
+                    acc.withdraw(totalEscrow);
+                    ExchangeMod.getMarketDAO().saveAccount(acc);
+
+                    BuyRequestRecord req = new BuyRequestRecord(
+                            UUID.randomUUID().toString(),
+                            player.getUUID(), player.getName().getString(),
+                            payload.itemId(), "", payload.displayName(),
+                            unitPrice, amount, 0, totalEscrow, "ACTIVE", System.currentTimeMillis()
+                    );
+                    ExchangeMod.getMarketDAO().saveBuyRequest(req);
+                    sendMarketplaceData(player, ExchangeLang.notify("rfq_created", MarketEngine.round2(totalEscrow)), false);
+                }
+                case "CANCEL" -> {
+                    var req = ExchangeMod.getMarketDAO().getBuyRequest(payload.requestId());
+                    if (req == null || !req.getBuyerUuid().equals(player.getUUID()) || !"ACTIVE".equals(req.getStatus())) {
+                        sendMarketplaceData(player, ExchangeLang.notify("rfq_cannot_cancel"), true);
+                        return;
+                    }
+
+                    double refund = req.getEscrowCbx();
+                    if (refund > 0.001) {
+                        PlayerAccount acc = ExchangeMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
+                        if (acc != null) {
+                            acc.deposit(refund);
+                            ExchangeMod.getMarketDAO().saveAccount(acc);
+                        }
+                    }
+                    req.cancel();
+                    ExchangeMod.getMarketDAO().updateBuyRequest(req);
+                    sendMarketplaceData(player, ExchangeLang.notify("rfq_canceled", MarketEngine.round2(refund)), false);
+                }
+                case "FULFILL" -> {
+                    var req = ExchangeMod.getMarketDAO().getBuyRequest(payload.requestId());
+                    if (req == null || !"ACTIVE".equals(req.getStatus())) {
+                        sendMarketplaceData(player, ExchangeLang.notify("rfq_not_active"), true);
+                        return;
+                    }
+
+                    int count = Math.min(Math.max(1, payload.amount()), req.getRemainingAmount());
+
+                    // Verify seller has enough items
+                    int found = 0;
+                    for (ItemStack st : player.getInventory().items) {
+                        if (!st.isEmpty() && BuiltInRegistries.ITEM.getKey(st.getItem()).toString().equals(req.getItemId())) {
+                            found += st.getCount();
+                        }
+                    }
+
+                    if (found < count) {
+                        sendMarketplaceData(player, ExchangeLang.notify("rfq_seller_insufficient", found, count), true);
+                        return;
+                    }
+
+                    // Remove items from seller
+                    int neededToRemove = count;
+                    for (int i = 0; i < player.getInventory().items.size(); i++) {
+                        ItemStack st = player.getInventory().items.get(i);
+                        if (!st.isEmpty() && BuiltInRegistries.ITEM.getKey(st.getItem()).toString().equals(req.getItemId())) {
+                            int toTake = Math.min(neededToRemove, st.getCount());
+                            st.shrink(toTake);
+                            neededToRemove -= toTake;
+                            if (neededToRemove <= 0) break;
+                        }
+                    }
+
+                    // Payout to seller
+                    double payout = req.getUnitPrice() * count;
+                    PlayerAccount sellerAcc = ExchangeMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
+                    if (sellerAcc != null) {
+                        sellerAcc.deposit(payout);
+                        ExchangeMod.getMarketDAO().saveAccount(sellerAcc);
+                    }
+
+                    req.fulfill(count);
+                    ExchangeMod.getMarketDAO().updateBuyRequest(req);
+
+                    // Deliver to buyer (online or offline unclaimed table)
+                    ServerPlayer buyerPlayer = player.getServer().getPlayerList().getPlayer(req.getBuyerUuid());
+                    Item it = BuiltInRegistries.ITEM.get(ResourceLocation.parse(req.getItemId()));
+                    ItemStack deliverStack = (it != null && it != Items.AIR) ? new ItemStack(it, count) : ItemStack.EMPTY;
+
+                    if (buyerPlayer != null && InventoryHelper.canPlayerHoldItem(buyerPlayer.getInventory(), deliverStack, count)) {
+                        buyerPlayer.getInventory().add(deliverStack);
+                        buyerPlayer.sendSystemMessage(Component.translatable("message.exchange.dock.delivered_direct", count, req.getDisplayName()));
+                        buyerPlayer.level().playSound(null, buyerPlayer.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+                    } else {
+                        // Inventory full or buyer offline -> Safe delivery buffer in tablet
+                        ExchangeMod.getMarketDAO().saveUnclaimedDelivery(UUID.randomUUID().toString(), req.getBuyerUuid(), req.getItemId(), count, System.currentTimeMillis());
+                        if (buyerPlayer != null) {
+                            buyerPlayer.sendSystemMessage(Component.translatable("message.exchange.dock.delivered_buffer", count, req.getDisplayName()));
+                            buyerPlayer.level().playSound(null, buyerPlayer.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+                        }
+                    }
+
+                    // Record transaction
+                    ExchangeMod.getMarketDAO().recordMarketTransaction(new MarketTxRecord(
+                            UUID.randomUUID().toString(),
+                            "BUY_REQUEST",
+                            "",
+                            req.getBuyerUuid(), req.getBuyerName(),
+                            player.getUUID(), player.getName().getString(),
+                            req.getItemId(), req.getDisplayName(),
+                            count, payout, 0.0, System.currentTimeMillis()
+                    ));
+
+                    player.level().playSound(null, player.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+                    sendMarketplaceData(player, ExchangeLang.notify("rfq_fulfilled", MarketEngine.round2(payout)), false);
+                }
+            }
+        } catch (Exception e) {
+            ExchangeMod.LOGGER.error("Failed to process buy request action", e);
+        }
+    }
+
+    public static void handleCommunityQuestAction(ServerPlayer player, ServerboundCommunityQuestPayload payload) {
+        if (ExchangeMod.getMarketDAO() == null) return;
+        try {
+            switch (payload.action()) {
+                case "CREATE" -> {
+                    String title = payload.title() != null ? payload.title().trim() : "";
+                    String desc = payload.description() != null ? payload.description().trim() : "";
+                    double reward = Math.max(0.0, payload.rewardCbx());
+
+                    if (title.isEmpty()) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_enter_title"), true);
+                        return;
+                    }
+                    if (title.length() > 60) {
+                        title = title.substring(0, 60);
+                    }
+                    if (desc.isEmpty()) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_enter_desc"), true);
+                        return;
+                    }
+                    if (desc.length() > 500) {
+                        desc = desc.substring(0, 500);
+                    }
+
+                    CommunityQuestRecord quest = new CommunityQuestRecord(
+                            UUID.randomUUID().toString(),
+                            player.getUUID(),
+                            player.getName().getString(),
+                            title,
+                            desc,
+                            reward,
+                            "OPEN",
+                            null,
+                            "",
+                            System.currentTimeMillis()
+                    );
+                    ExchangeMod.getMarketDAO().saveOrUpdateQuest(quest);
+                    player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.PLAYERS, 0.8F, 1.2F);
+                    sendMarketplaceData(player, ExchangeLang.notify("quest_published"), false);
+                }
+                case "ACCEPT" -> {
+                    var quest = ExchangeMod.getMarketDAO().getQuest(payload.questId());
+                    if (quest == null || !"OPEN".equalsIgnoreCase(quest.getStatus())) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_unavailable"), true);
+                        return;
+                    }
+                    if (quest.getCreatorUuid().equals(player.getUUID())) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_cannot_accept_own"), true);
+                        return;
+                    }
+
+                    quest.setStatus("IN_PROGRESS");
+                    quest.setWorkerUuid(player.getUUID());
+                    quest.setWorkerName(player.getName().getString());
+                    ExchangeMod.getMarketDAO().saveOrUpdateQuest(quest);
+
+                    // Notify creator if online
+                    ServerPlayer creator = player.getServer().getPlayerList().getPlayer(quest.getCreatorUuid());
+                    if (creator != null) {
+                        creator.sendSystemMessage(Component.translatable("message.exchange.quest.taken", player.getName().getString(), quest.getTitle()));
+                        creator.level().playSound(null, creator.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.0F);
+                    }
+
+                    player.level().playSound(null, player.blockPosition(), SoundEvents.VILLAGER_YES, SoundSource.PLAYERS, 0.8F, 1.1F);
+                    sendMarketplaceData(player, ExchangeLang.notify("quest_accepted"), false);
+                }
+                case "CANCEL_WORK" -> {
+                    var quest = ExchangeMod.getMarketDAO().getQuest(payload.questId());
+                    if (quest == null || !"IN_PROGRESS".equalsIgnoreCase(quest.getStatus())) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_not_in_progress"), true);
+                        return;
+                    }
+                    boolean isWorker = quest.getWorkerUuid() != null && quest.getWorkerUuid().equals(player.getUUID());
+                    boolean isCreator = quest.getCreatorUuid().equals(player.getUUID());
+                    if (!isWorker && !isCreator) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_not_authorized"), true);
+                        return;
+                    }
+
+                    quest.setStatus("OPEN");
+                    quest.setWorkerUuid(null);
+                    quest.setWorkerName("");
+                    ExchangeMod.getMarketDAO().saveOrUpdateQuest(quest);
+
+                    sendMarketplaceData(player, ExchangeLang.notify("quest_work_canceled"), false);
+                }
+                case "COMPLETE" -> {
+                    var quest = ExchangeMod.getMarketDAO().getQuest(payload.questId());
+                    if (quest == null || !quest.getCreatorUuid().equals(player.getUUID())) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_creator_only_complete"), true);
+                        return;
+                    }
+
+                    quest.setStatus("COMPLETED");
+                    ExchangeMod.getMarketDAO().saveOrUpdateQuest(quest);
+                    sendMarketplaceData(player, ExchangeLang.notify("quest_marked_completed"), false);
+                }
+                case "PAY_REWARD" -> {
+                    var quest = ExchangeMod.getMarketDAO().getQuest(payload.questId());
+                    if (quest == null || !quest.getCreatorUuid().equals(player.getUUID())) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_creator_only_reward"), true);
+                        return;
+                    }
+                    if (quest.getWorkerUuid() == null) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_no_worker"), true);
+                        return;
+                    }
+                    double reward = quest.getRewardCbx();
+                    if (reward <= 0.001) {
+                        quest.setStatus("COMPLETED");
+                        ExchangeMod.getMarketDAO().saveOrUpdateQuest(quest);
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_completed_free"), false);
+                        return;
+                    }
+
+                    PlayerAccount creatorAcc = ExchangeMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
+                    if (creatorAcc == null || creatorAcc.getBalanceCbx() < reward) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_insufficient_funds", MarketEngine.round2(reward)), true);
+                        return;
+                    }
+
+                    PlayerAccount workerAcc = ExchangeMod.getMarketDAO().getAccount(quest.getWorkerUuid(), quest.getWorkerName());
+
+                    creatorAcc.withdraw(reward);
+                    workerAcc.deposit(reward);
+                    ExchangeMod.getMarketDAO().saveAccount(creatorAcc);
+                    ExchangeMod.getMarketDAO().saveAccount(workerAcc);
+
+                    quest.setStatus("COMPLETED");
+                    ExchangeMod.getMarketDAO().saveOrUpdateQuest(quest);
+
+                    // Record market transaction
+                    ExchangeMod.getMarketDAO().recordMarketTransaction(new MarketTxRecord(
+                            UUID.randomUUID().toString(),
+                            "QUEST_REWARD",
+                            quest.getQuestId(),
+                            player.getUUID(), player.getName().getString(),
+                            quest.getWorkerUuid(), quest.getWorkerName(),
+                            "exchange:quest_reward", ExchangeLang.messageStr("quest_tx_desc", quest.getTitle()),
+                            1, reward, 0.0, System.currentTimeMillis()
+                    ));
+
+                    // Notify worker if online
+                    ServerPlayer workerPlayer = player.getServer().getPlayerList().getPlayer(quest.getWorkerUuid());
+                    if (workerPlayer != null) {
+                        workerPlayer.sendSystemMessage(Component.translatable("message.exchange.quest.reward_paid", player.getName().getString(), String.format(Locale.US, "%.2f", MarketEngine.round2(reward)), quest.getTitle()));
+                        workerPlayer.level().playSound(null, workerPlayer.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.2F);
+                    }
+
+                    player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.9F, 1.0F);
+                    sendMarketplaceData(player, ExchangeLang.notify("quest_reward_paid_creator", MarketEngine.round2(reward), quest.getWorkerName()), false);
+                }
+                case "DELETE" -> {
+                    var quest = ExchangeMod.getMarketDAO().getQuest(payload.questId());
+                    if (quest == null || !quest.getCreatorUuid().equals(player.getUUID())) {
+                        sendMarketplaceData(player, ExchangeLang.notify("quest_creator_only_delete"), true);
+                        return;
+                    }
+
+                    ExchangeMod.getMarketDAO().deleteQuest(payload.questId());
+                    sendMarketplaceData(player, ExchangeLang.notify("quest_deleted"), false);
+                }
+            }
+        } catch (Exception e) {
+            ExchangeMod.LOGGER.error("Failed to process community quest action", e);
+            sendMarketplaceData(player, ExchangeLang.notify("quest_action_error"), true);
+        }
+    }
+
+    public static void handleClaimDelivery(ServerPlayer player, ServerboundClaimDeliveryPayload payload) {
+        if (ExchangeMod.getMarketDAO() == null) return;
+        try {
+            var deliveries = ExchangeMod.getMarketDAO().getUnclaimedDeliveries(player.getUUID());
+            if (deliveries == null || deliveries.isEmpty()) {
+                sendMarketplaceData(player, ExchangeLang.notify("buffer_empty"), false);
+                return;
+            }
+
+            int totalClaimed = 0;
+            boolean hadSpaceIssue = false;
+
+            for (var d : deliveries) {
+                if (!payload.claimAll() && !d.deliveryId().equals(payload.deliveryId())) {
+                    continue;
+                }
+
+                ItemStack stack = ItemStack.EMPTY;
+                if (d.itemNbt() != null && !d.itemNbt().isEmpty()) {
+                    try {
+                        net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(d.itemNbt());
+                        stack = ItemStack.parseOptional(player.registryAccess(), tag);
+                    } catch (Exception ignored) {}
+                }
+                if (stack.isEmpty()) {
+                    Item it = BuiltInRegistries.ITEM.get(ResourceLocation.parse(d.resourceId()));
+                    if (it != null && it != Items.AIR) {
+                        stack = new ItemStack(it);
+                    }
+                }
+
+                if (stack.isEmpty()) {
+                    ExchangeMod.getMarketDAO().deleteUnclaimedDelivery(d.deliveryId());
+                    continue;
+                }
+
+                int rem = d.amount();
+                int maxStack = stack.getMaxStackSize();
+                int claimedFromThis = 0;
+
+                while (rem > 0) {
+                    int toGive = Math.min(rem, maxStack);
+                    ItemStack toAdd = stack.copyWithCount(toGive);
+                    if (InventoryHelper.canPlayerHoldItem(player.getInventory(), toAdd, toGive)) {
+                        player.getInventory().add(toAdd);
+                        claimedFromThis += toGive;
+                        rem -= toGive;
+                    } else {
+                        hadSpaceIssue = true;
+                        break;
+                    }
+                }
+
+                totalClaimed += claimedFromThis;
+
+                if (rem <= 0) {
+                    ExchangeMod.getMarketDAO().deleteUnclaimedDelivery(d.deliveryId());
+                } else if (claimedFromThis > 0) {
+                    ExchangeMod.getMarketDAO().updateUnclaimedDeliveryAmount(d.deliveryId(), rem);
+                }
+
+                if (hadSpaceIssue) {
+                    break;
+                }
+            }
+
+            if (totalClaimed > 0) {
+                player.level().playSound(null, player.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+            }
+
+            String msg;
+            boolean isErr = false;
+            if (hadSpaceIssue) {
+                if (totalClaimed > 0) {
+                    msg = ExchangeLang.notify("buffer_claimed_partial", totalClaimed);
+                } else {
+                    msg = ExchangeLang.notify("message.exchange.inventory_full");
+                    isErr = true;
+                    player.level().playSound(null, player.blockPosition(), SoundEvents.VILLAGER_NO, SoundSource.PLAYERS, 0.8F, 1.0F);
+                }
+            } else if (totalClaimed > 0) {
+                msg = ExchangeLang.notify("buffer_claimed_all", totalClaimed);
+            } else {
+                msg = ExchangeLang.notify("buffer_claim_failed");
+                isErr = true;
+            }
+
+            sendMarketplaceData(player, msg, isErr);
+        } catch (Exception e) {
+            ExchangeMod.LOGGER.error("Failed to claim delivery for " + player.getName().getString(), e);
+        }
+    }
+}

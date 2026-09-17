@@ -1,0 +1,12 @@
+{
+  "resourceId": "minecraft:copper_ingot",
+  "displayName": "Copper Ingot",
+  "basePrice": 8.0,
+  "targetReserve": 20000.0,
+  "currentStock": 20000.0,
+  "elasticity": 0.75,
+  "maxReserve": 30000.0,
+  "disposalAlpha": 8.0,
+  "feeRate": 0.02,
+  "minPriceFloor": 0.05
+}

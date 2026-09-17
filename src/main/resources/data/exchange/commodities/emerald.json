@@ -1,0 +1,12 @@
+{
+  "resourceId": "minecraft:emerald",
+  "displayName": "Emerald",
+  "basePrice": 50.0,
+  "targetReserve": 8000.0,
+  "currentStock": 8000.0,
+  "elasticity": 0.85,
+  "maxReserve": 12000.0,
+  "disposalAlpha": 25.0,
+  "feeRate": 0.02,
+  "minPriceFloor": 0.15
+}

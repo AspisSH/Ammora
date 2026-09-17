@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "exchange:block/exchange_terminal" },
+    "facing=south": { "model": "exchange:block/exchange_terminal", "y": 180 },
+    "facing=west":  { "model": "exchange:block/exchange_terminal", "y": 270 },
+    "facing=east":  { "model": "exchange:block/exchange_terminal", "y": 90 }
+  }
+}

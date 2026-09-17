@@ -1,0 +1,12 @@
+{
+  "resourceId": "minecraft:gold_ingot",
+  "displayName": "Gold Ingot",
+  "basePrice": 40.0,
+  "targetReserve": 5000.0,
+  "currentStock": 5000.0,
+  "elasticity": 0.85,
+  "maxReserve": 8000.0,
+  "disposalAlpha": 20.0,
+  "feeRate": 0.02,
+  "minPriceFloor": 0.20
+}

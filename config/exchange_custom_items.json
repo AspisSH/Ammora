@@ -1,0 +1,41 @@
+[
+  {
+    "resourceId": "create:brass_ingot",
+    "displayName": "Латунный слиток",
+    "basePrice": 28.0,
+    "targetReserve": 6000.0,
+    "currentStock": 6000.0,
+    "elasticity": 0.85,
+    "maxReserve": 10000.0,
+    "disposalAlpha": 20.0,
+    "feeRate": 0.02,
+    "minPriceFloor": 0.2,
+    "enabled": false
+  },
+  {
+    "resourceId": "create:zinc_ingot",
+    "displayName": "Цинковый слиток",
+    "basePrice": 14.0,
+    "targetReserve": 12000.0,
+    "currentStock": 12000.0,
+    "elasticity": 0.8,
+    "maxReserve": 18000.0,
+    "disposalAlpha": 15.0,
+    "feeRate": 0.02,
+    "minPriceFloor": 0.1,
+    "enabled": false
+  },
+  {
+    "resourceId": "mekanism:ingot_steel",
+    "displayName": "Стальной слиток",
+    "basePrice": 22.0,
+    "targetReserve": 8000.0,
+    "currentStock": 8000.0,
+    "elasticity": 0.85,
+    "maxReserve": 12000.0,
+    "disposalAlpha": 18.0,
+    "feeRate": 0.02,
+    "minPriceFloor": 0.15,
+    "enabled": false
+  }
+]

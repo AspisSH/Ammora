@@ -1,0 +1,11 @@
+{
+  "id": "lapis_enchantment",
+  "title": "Season of Enchantment",
+  "titleKey": "event.exchange.lapis_enchantment.title",
+  "description": "Mages and guild enchanters are buying up lapis lazuli for rituals. Lapis price up +25%!",
+  "descriptionKey": "event.exchange.lapis_enchantment.desc",
+  "resourceId": "minecraft:lapis_lazuli",
+  "priceMultiplier": 0.25,
+  "durationDays": 2,
+  "weight": 10
+}

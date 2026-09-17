@@ -1,0 +1,12 @@
+{
+  "resourceId": "minecraft:iron_ingot",
+  "displayName": "Iron Ingot",
+  "basePrice": 12.0,
+  "targetReserve": 10000.0,
+  "currentStock": 10000.0,
+  "elasticity": 0.80,
+  "maxReserve": 15000.0,
+  "disposalAlpha": 15.0,
+  "feeRate": 0.02,
+  "minPriceFloor": 0.10
+}

@@ -1,0 +1,12 @@
+{
+  "resourceId": "minecraft:lapis_lazuli",
+  "displayName": "Lapis Lazuli",
+  "basePrice": 15.0,
+  "targetReserve": 12000.0,
+  "currentStock": 12000.0,
+  "elasticity": 0.80,
+  "maxReserve": 18000.0,
+  "disposalAlpha": 10.0,
+  "feeRate": 0.02,
+  "minPriceFloor": 0.05
+}

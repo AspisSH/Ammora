@@ -1,0 +1,10 @@
+{
+  "parent": "minecraft:block/orientable_with_bottom",
+  "textures": {
+    "top": "minecraft:block/hopper_top",
+    "bottom": "minecraft:block/iron_block",
+    "front": "minecraft:block/blast_furnace_front",
+    "side": "minecraft:block/chiseled_polished_blackstone",
+    "particle": "minecraft:block/chiseled_polished_blackstone"
+  }
+}

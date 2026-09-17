@@ -1,0 +1,12 @@
+{
+  "resourceId": "minecraft:diamond",
+  "displayName": "Diamond",
+  "basePrice": 350.0,
+  "targetReserve": 2000.0,
+  "currentStock": 2000.0,
+  "elasticity": 0.90,
+  "maxReserve": 3500.0,
+  "disposalAlpha": 40.0,
+  "feeRate": 0.02,
+  "minPriceFloor": 1.00
+}
