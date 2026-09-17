@@ -162,4 +162,35 @@ public class DatabaseTest {
         dao.deleteUnclaimedDelivery(delId);
         assertTrue(dao.getUnclaimedDeliveries(playerUuid).isEmpty());
     }
+
+    @Test
+    @DisplayName("Should retrieve all accounts ordered by balance for admin panel")
+    public void testGetAllAccountsForAdmin() throws SQLException {
+        UUID u1 = UUID.randomUUID();
+        UUID u2 = UUID.randomUUID();
+        UUID u3 = UUID.randomUUID();
+
+        PlayerAccount a1 = new PlayerAccount(u1, "Alice", 500.0, 10, 2, System.currentTimeMillis());
+        PlayerAccount a2 = new PlayerAccount(u2, "Bob", 1500.0, 50, 4, System.currentTimeMillis());
+        PlayerAccount a3 = new PlayerAccount(u3, "Charlie", 200.0, 0, 1, System.currentTimeMillis());
+
+        dao.saveAccount(a1);
+        dao.saveAccount(a2);
+        dao.saveAccount(a3);
+
+        List<PlayerAccount> all = dao.getAllAccounts();
+        assertEquals(3, all.size());
+        assertEquals("Bob", all.get(0).getPlayerName());
+        assertEquals(1500.0, all.get(0).getBalanceCbx());
+        assertEquals("Alice", all.get(1).getPlayerName());
+        assertEquals("Charlie", all.get(2).getPlayerName());
+
+        // Admin modifies balance
+        a1.setBalanceCbx(9999.0);
+        dao.saveAccount(a1);
+
+        List<PlayerAccount> updated = dao.getAllAccounts();
+        assertEquals("Alice", updated.get(0).getPlayerName());
+        assertEquals(9999.0, updated.get(0).getBalanceCbx());
+    }
 }

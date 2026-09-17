@@ -8,6 +8,7 @@ import com.ammora.mod.network.ServerboundShopPurchasePayload;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -274,15 +275,52 @@ public class PlayerShopScreen extends Screen {
                     rebuildWidgets();
                 }).bounds(cx, cy, cardW, cardH).build()).setAlpha(0.01F);
             } else {
-                // Customer buy buttons
+                // Customer buy buttons (1, 16, 64)
                 if (slotIdx < data.slots().size()) {
                     var slotItem = data.slots().get(slotIdx);
                     if (slotItem.stockCount() > 0) {
-                        this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("shop.btn_buy_1")), b -> {
+                        int stock = slotItem.stockCount();
+                        int btnY = cy + cardH - 16;
+
+                        // 1 pc button
+                        double total1 = slotItem.priceCbx();
+                        Button btn1 = Button.builder(Component.literal(AmmoraLang.guiStr("shop.btn_buy_1")), b -> {
                             PacketDistributor.sendToServer(new ServerboundShopPurchasePayload(
-                                     data.shopId(), slotIdx, 1, false
+                                    data.shopId(), slotIdx, 1, false
                             ));
-                        }).bounds(cx + 3, cy + cardH - 16, cardW - 6, 14).build());
+                        }).bounds(cx + 2, btnY, 20, 14)
+                          .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("shop.btn_buy_tooltip", String.format(Locale.US, "%.2f", total1)))))
+                          .build();
+                        btn1.active = stock >= 1;
+                        this.addRenderableWidget(btn1);
+
+                        // 16 pcs button
+                        double total16 = slotItem.priceCbx() * 16.0;
+                        Button btn16 = Button.builder(Component.literal(stock >= 16 ? AmmoraLang.guiStr("shop.btn_buy_16") : "§716"), b -> {
+                            PacketDistributor.sendToServer(new ServerboundShopPurchasePayload(
+                                    data.shopId(), slotIdx, 16, false
+                            ));
+                        }).bounds(cx + 24, btnY, 20, 14)
+                          .tooltip(Tooltip.create(Component.literal(stock >= 16
+                                  ? AmmoraLang.guiStr("shop.btn_buy_n_tooltip", 16, String.format(Locale.US, "%.2f", total16))
+                                  : AmmoraLang.guiStr("shop.btn_buy_insufficient", 16))))
+                          .build();
+                        btn16.active = stock >= 16;
+                        this.addRenderableWidget(btn16);
+
+                        // 64 pcs button
+                        double total64 = slotItem.priceCbx() * 64.0;
+                        Button btn64 = Button.builder(Component.literal(stock >= 64 ? AmmoraLang.guiStr("shop.btn_buy_64") : "§764"), b -> {
+                            PacketDistributor.sendToServer(new ServerboundShopPurchasePayload(
+                                    data.shopId(), slotIdx, 64, false
+                            ));
+                        }).bounds(cx + 46, btnY, 20, 14)
+                          .tooltip(Tooltip.create(Component.literal(stock >= 64
+                                  ? AmmoraLang.guiStr("shop.btn_buy_n_tooltip", 64, String.format(Locale.US, "%.2f", total64))
+                                  : AmmoraLang.guiStr("shop.btn_buy_insufficient", 64))))
+                          .build();
+                        btn64.active = stock >= 64;
+                        this.addRenderableWidget(btn64);
                     }
                 }
             }
@@ -425,11 +463,22 @@ public class PlayerShopScreen extends Screen {
                 if (slotItem.stockCount() > 0) {
                     gg.drawString(this.font, AmmoraLang.guiStr("shop.slot_pcs", slotItem.stockCount()), cx + 4, cy + 46, 0xFFFFFFFF);
                 } else {
-                    gg.drawString(this.font, data.isOwner() ? AmmoraLang.guiStr("shop.slot_free") : AmmoraLang.guiStr("shop.slot_out_of_stock"), cx + 4, cy + 46, 0xFFFFFFFF);
+                    String outStr = data.isOwner() ? AmmoraLang.guiStr("shop.slot_free") : AmmoraLang.guiStr("shop.slot_out_of_stock");
+                    if (this.font.width(outStr) > cardW - 8) {
+                        float scale = (float) (cardW - 8) / (float) this.font.width(outStr);
+                        gg.pose().pushPose();
+                        gg.pose().translate(cx + 4, cy + 46, 0);
+                        gg.pose().scale(scale, scale, 1.0F);
+                        gg.drawString(this.font, outStr, 0, 0, 0xFFFFFFFF);
+                        gg.pose().popPose();
+                    } else {
+                        gg.drawString(this.font, outStr, cx + 4, cy + 46, 0xFFFFFFFF);
+                    }
                 }
 
-                // Check Hover
-                if (mouseX >= cx && mouseX <= cx + cardW && mouseY >= cy && mouseY <= cy + cardH) {
+                // Check Hover (exclude bottom button area when customer buy buttons are present)
+                int hoverMaxY = (!data.isOwner() && slotItem.stockCount() > 0) ? (cy + cardH - 18) : (cy + cardH);
+                if (mouseX >= cx && mouseX <= cx + cardW && mouseY >= cy && mouseY <= hoverMaxY) {
                     hoveredSlot = slotItem;
                 }
             }

@@ -349,7 +349,12 @@
   "gui.ammora.shop.net_off": "§7Network: OFF",
   "gui.ammora.shop.net_locked": "§8Network: 🔒 Module",
   "gui.ammora.shop.btn_withdraw_rev": "§6Withdraw: %.2f CBX",
-  "gui.ammora.shop.btn_buy_1": "Buy 1",
+  "gui.ammora.shop.btn_buy_1": "§a1",
+  "gui.ammora.shop.btn_buy_16": "§e16",
+  "gui.ammora.shop.btn_buy_64": "§664",
+  "gui.ammora.shop.btn_buy_tooltip": "§aBuy 1 pc §7(Total: §e%s CBX§7)",
+  "gui.ammora.shop.btn_buy_n_tooltip": "§6Buy %d pcs §7(Total: §e%s CBX§7)",
+  "gui.ammora.shop.btn_buy_insufficient": "§cNot enough stock (requires %d pcs)",
   "gui.ammora.shop.loading": "§cLoading shop data...",
   "gui.ammora.shop.owner_label": "§7Owner: §e%s",
   "gui.ammora.shop.owner_you": " §a(You)",
@@ -361,7 +366,7 @@
   "gui.ammora.shop.slot_add_item": "§8+ Item",
   "gui.ammora.shop.slot_pcs": "§a%d pcs",
   "gui.ammora.shop.slot_free": "§8Vacant",
-  "gui.ammora.shop.slot_out_of_stock": "§cOut of Stock",
+  "gui.ammora.shop.slot_out_of_stock": "§cSold Out",
   "gui.ammora.shop.slot_sel_title": "§bSlot #%d:",
   "gui.ammora.shop.slot_price_label": "§7Price:",
   "gui.ammora.shop.slot_empty_hint": "§8Slot empty — pick an item",
@@ -779,5 +784,7 @@
   "gui.ammora.wallet.ledger_buy": "Buy %s x%d",
   "gui.ammora.wallet.ledger_sell": "Sell %s x%d",
   "gui.ammora.wallet.ledger_oms_open": "Open OMS: %s",
-  "gui.ammora.wallet.ledger_oms_close": "Close OMS: %s"
+  "gui.ammora.wallet.ledger_oms_close": "Close OMS: %s",
+  "command.ammora.admin.no_permission": "§c[AMMORA] You do not have operator permissions to access the admin console.",
+  "command.ammora.admin.player_only": "§cThis command can only be executed by a player."
 }

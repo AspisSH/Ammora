@@ -306,6 +306,24 @@ public class MarketDAO {
         }
     }
 
+    public List<PlayerAccount> getAllAccounts() throws SQLException {
+        List<PlayerAccount> list = new ArrayList<>();
+        String sql = "SELECT * FROM accounts ORDER BY balance_cbx DESC;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(new PlayerAccount(
+                        UUID.fromString(rs.getString("player_uuid")),
+                        rs.getString("player_name"),
+                        rs.getDouble("balance_cbx"),
+                        rs.getInt("rep_points"),
+                        rs.getInt("rep_level"),
+                        rs.getLong("updated_at")
+                ));
+            }
+        }
+        return list;
+    }
+
     public void saveOMSPosition(OMSPosition pos) throws SQLException {
         if (pos.getAmountUnits() <= 0.001) {
             deleteOMSPosition(pos.getPositionId());

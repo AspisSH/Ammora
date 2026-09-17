@@ -243,6 +243,11 @@ public class AmmoraMod {
     }
 
     @SubscribeEvent
+    public void onRegisterCommands(net.neoforged.neoforge.event.RegisterCommandsEvent event) {
+        com.ammora.mod.command.AmmoraCommands.register(event.getDispatcher());
+    }
+
+    @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         MinecraftServer server = event.getServer();
         File worldDir = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).toFile();

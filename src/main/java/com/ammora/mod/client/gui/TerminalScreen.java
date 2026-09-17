@@ -1157,17 +1157,21 @@ public class TerminalScreen extends Screen {
 
         g.fill(0, 0, this.width, this.height, COLOR_BG);
 
+        boolean isModalOpen = showRankModal || showRedstoneModal || showGuideModal;
+        int activeMouseX = isModalOpen ? -1 : mouseX;
+        int activeMouseY = isModalOpen ? -1 : mouseY;
+
         renderHeader(g);
         if (showAssetSidebar) {
-            renderAssetSidebar(g, mouseX, mouseY);
+            renderAssetSidebar(g, activeMouseX, activeMouseY);
         }
-        renderChart(g, mouseX, mouseY);
+        renderChart(g, activeMouseX, activeMouseY);
         renderOrderPanel(g);
 
-        super.render(g, mouseX, mouseY, partialTick);
+        super.render(g, activeMouseX, activeMouseY, partialTick);
 
-        // Tooltip for news ticker banner
-        if (!showRankModal && !showRedstoneModal && !showGuideModal && data != null && data.activeEventTitle() != null
+        // Tooltip for news ticker banner (suppressed if a modal is open)
+        if (!isModalOpen && data != null && data.activeEventTitle() != null
                 && !data.activeEventTitle().isEmpty()) {
             int panelW = Math.max(152, Math.min(180, (int) (this.width * 0.30f)));
             int rightX = this.width - panelW - 8;
@@ -1190,11 +1194,26 @@ public class TerminalScreen extends Screen {
         }
 
         if (showRankModal) {
+            g.flush();
+            g.pose().pushPose();
+            g.pose().translate(0, 0, 400.0F);
             renderRankModal(g, mouseX, mouseY);
+            g.flush();
+            g.pose().popPose();
         } else if (showRedstoneModal) {
+            g.flush();
+            g.pose().pushPose();
+            g.pose().translate(0, 0, 400.0F);
             renderRedstoneModal(g, mouseX, mouseY);
+            g.flush();
+            g.pose().popPose();
         } else if (showGuideModal) {
+            g.flush();
+            g.pose().pushPose();
+            g.pose().translate(0, 0, 400.0F);
             renderGuideModal(g, mouseX, mouseY);
+            g.flush();
+            g.pose().popPose();
         }
     }
 

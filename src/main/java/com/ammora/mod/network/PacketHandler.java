@@ -73,6 +73,12 @@ public class PacketHandler {
                 (payload, context) -> context.enqueueWork(() -> ClientPacketHandler.handleTradeSync(payload))
         );
 
+        registrar.playToClient(
+                ClientboundAdminDataPayload.TYPE,
+                ClientboundAdminDataPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> ClientPacketHandler.handleAdminData(payload))
+        );
+
         // ----------------------------------------------------
         // Client to Server: Order & Market Terminal Domain
         // ----------------------------------------------------
@@ -261,6 +267,19 @@ public class PacketHandler {
                 (payload, context) -> context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer serverPlayer) {
                         TradeSessionManager.getInstance().handleAction(serverPlayer, payload);
+                    }
+                })
+        );
+
+        // ----------------------------------------------------
+        // Client to Server: Operator Admin Domain
+        // ----------------------------------------------------
+        registrar.playToServer(
+                ServerboundAdminActionPayload.TYPE,
+                ServerboundAdminActionPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer serverPlayer) {
+                        AdminPacketHandler.handleAdminAction(serverPlayer, payload);
                     }
                 })
         );

@@ -62,6 +62,15 @@ public class ClientPacketHandler {
         }
     }
 
+    public static void handleAdminData(com.ammora.mod.network.ClientboundAdminDataPayload payload) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof com.ammora.mod.client.gui.AdminScreen screen) {
+            screen.updateData(payload);
+        } else {
+            mc.setScreen(new com.ammora.mod.client.gui.AdminScreen(payload));
+        }
+    }
+
     public static void handleTradeSync(com.ammora.mod.network.ClientboundTradeSyncPayload payload) {
         Minecraft mc = Minecraft.getInstance();
         if (payload.activeSession()) {
@@ -105,11 +114,6 @@ public class ClientPacketHandler {
         pendingTradeInviteExpiry = System.currentTimeMillis() + 60000L;
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) {
-            mc.player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                    "gui.ammora.wallet.p2p_invite_chat", payload.senderName()
-            ));
-        }
         if (mc.screen instanceof ColdWalletScreen screen) {
             screen.setIncomingTradeInvite(payload.senderUuid(), payload.senderName());
         }

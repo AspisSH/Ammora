@@ -349,7 +349,12 @@
   "gui.ammora.shop.net_off": "§7Сеть: ВЫКЛ",
   "gui.ammora.shop.net_locked": "§8Сеть: 🔒 Модуль",
   "gui.ammora.shop.btn_withdraw_rev": "§6Снять: %.2f CBX",
-  "gui.ammora.shop.btn_buy_1": "Купить 1",
+  "gui.ammora.shop.btn_buy_1": "§a1",
+  "gui.ammora.shop.btn_buy_16": "§e16",
+  "gui.ammora.shop.btn_buy_64": "§664",
+  "gui.ammora.shop.btn_buy_tooltip": "§aКупить 1 шт. §7(Итого: §e%s CBX§7)",
+  "gui.ammora.shop.btn_buy_n_tooltip": "§6Купить %d шт. §7(Итого: §e%s CBX§7)",
+  "gui.ammora.shop.btn_buy_insufficient": "§cНедостаточно товара (требуется %d шт.)",
   "gui.ammora.shop.loading": "§cЗагрузка магазина...",
   "gui.ammora.shop.owner_label": "§7Владелец: §e%s",
   "gui.ammora.shop.owner_you": " §a(Вы)",
@@ -361,7 +366,7 @@
   "gui.ammora.shop.slot_add_item": "§8+ Товар",
   "gui.ammora.shop.slot_pcs": "§a%d шт.",
   "gui.ammora.shop.slot_free": "§8Свободен",
-  "gui.ammora.shop.slot_out_of_stock": "§cНет в наличии",
+  "gui.ammora.shop.slot_out_of_stock": "§cРаспродано",
   "gui.ammora.shop.slot_sel_title": "§bСлот #%d:",
   "gui.ammora.shop.slot_price_label": "§7Цена:",
   "gui.ammora.shop.slot_empty_hint": "§8Слот пуст — выберите товар",
@@ -779,5 +784,7 @@
   "gui.ammora.wallet.ledger_buy": "Покупка %s x%d",
   "gui.ammora.wallet.ledger_sell": "Продажа %s x%d",
   "gui.ammora.wallet.ledger_oms_open": "Открытие ОМС: %s",
-  "gui.ammora.wallet.ledger_oms_close": "Закрытие ОМС: %s"
+  "gui.ammora.wallet.ledger_oms_close": "Закрытие ОМС: %s",
+  "command.ammora.admin.no_permission": "§c[AMMORA] У вас нет прав оператора для доступа к админ-панели.",
+  "command.ammora.admin.player_only": "§cДанную команду может вызывать только игрок."
 }
