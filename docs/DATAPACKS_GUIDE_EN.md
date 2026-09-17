@@ -27,7 +27,7 @@ your_datapack/
 ```
 
 > [!TIP]
-> You can place files under any namespace (e.g. `data/exchange/exchange/commodities/` or `data/my_pack/exchange/commodities/`). The mod scans all active namespaces for `exchange/commodities`, `exchange/market_events`, and `exchange/delivery_contracts`.
+> You can place files under any namespace (e.g. `data/ammora/ammora/commodities/` or `data/my_pack/ammora/commodities/`). The mod scans all active namespaces for `exchange/commodities`, `exchange/market_events`, and `exchange/delivery_contracts`.
 
 ---
 

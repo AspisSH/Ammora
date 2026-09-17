@@ -27,7 +27,7 @@ your_datapack/
 ```
 
 > [!TIP]
-> Файлы можно располагать под любым пространством имен (например, `data/exchange/exchange/commodities/` или `data/my_pack/exchange/commodities/`). Мод автоматически сканирует все активные неймспейсы.
+> Файлы можно располагать под любым пространством имен (например, `data/ammora/ammora/commodities/` или `data/my_pack/ammora/commodities/`). Мод автоматически сканирует все активные неймспейсы.
 
 ---
 

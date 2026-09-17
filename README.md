@@ -28,7 +28,7 @@ No more infinite money from automated iron or gold farms: prices continuously re
 - **Create & CC:Tweaked Integration**: 
   - **Create**: Kinetic rotational speed scales dock trading frequency; Display Links project live quotes onto flapped display boards; interactive 3D Ponder scenes included.
   - **CC: Tweaked**: Full Lua peripheral API to build algorithmic trading bots, automated arbitrage routers, and wall-mounted stock tickers.
-- **Data-Driven & Datapack Support**: Easily add custom commodities, configure delivery contracts, or trigger dynamic market events via standard Minecraft datapacks (`data/exchange/...`).
+- **Data-Driven & Datapack Support**: Easily add custom commodities, configure delivery contracts, or trigger dynamic market events via standard Minecraft datapacks (`data/ammora/...`).
 
 ---
 
@@ -88,7 +88,7 @@ Selling surplus goods beyond $S_{max}$ charges the player a waste processing fee
 Ammora supports dynamic registration of commodities, contracts, and market events via vanilla Minecraft datapacks:
 
 ### Custom Commodity Example
-`data/your_pack/exchange/commodities/titanium.json`:
+`data/your_pack/ammora/commodities/titanium.json`:
 ```json
 {
   "resourceId": "modid:titanium_ingot",

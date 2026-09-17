@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "ammora:block/trade_dock" },
+    "facing=south": { "model": "ammora:block/trade_dock", "y": 180 },
+    "facing=west":  { "model": "ammora:block/trade_dock", "y": 270 },
+    "facing=east":  { "model": "ammora:block/trade_dock", "y": 90 }
+  }
+}

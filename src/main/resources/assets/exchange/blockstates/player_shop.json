@@ -1,8 +1,0 @@
-{
-  "variants": {
-    "facing=north": { "model": "exchange:block/player_shop" },
-    "facing=south": { "model": "exchange:block/player_shop", "y": 180 },
-    "facing=west":  { "model": "exchange:block/player_shop", "y": 270 },
-    "facing=east":  { "model": "exchange:block/player_shop", "y": 90 }
-  }
-}

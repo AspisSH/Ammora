@@ -1,0 +1,11 @@
+{
+  "id": "netherite_discovery",
+  "title": "Ancient Delta Expedition",
+  "titleKey": "event.ammora.netherite_discovery.title",
+  "description": "Massive ancient ruins discovered in Basalt Deltas. Netherite market crashed by -20%.",
+  "descriptionKey": "event.ammora.netherite_discovery.desc",
+  "resourceId": "minecraft:netherite_ingot",
+  "priceMultiplier": -0.20,
+  "durationDays": 2,
+  "weight": 8
+}

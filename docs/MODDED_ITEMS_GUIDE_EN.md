@@ -2,7 +2,7 @@
 
 This guide explains how to integrate items from other mods (**Create**, **Mekanism**, **Thermal Expansion**, **Botania**, **Applied Energistics 2**, **Farmer's Delight**, etc.) into the spot and derivative markets of **Ammora**.
 
-You can define custom commodities either via **Minecraft Datapacks** (`data/<pack>/exchange/commodities/*.json`) or via the global config file (`config/exchange_custom_items.json`).
+You can define custom commodities either via **Minecraft Datapacks** (`data/<pack>/ammora/commodities/*.json`) or via the global config file (`config/ammora_custom_items.json`).
 
 ---
 
@@ -10,7 +10,7 @@ You can define custom commodities either via **Minecraft Datapacks** (`data/<pac
 
 The configuration file is automatically generated on the first server or client launch:
 ```text
-config/exchange_custom_items.json
+config/ammora_custom_items.json
 ```
 *(If missing, the mod generates a template with brass, zinc, and steel examples)*.
 
@@ -96,7 +96,7 @@ Copy the prompt below into any AI assistant to generate a balanced JSON file ins
 
 ```text
 You are an experienced Minecraft modpack balance engineer and Automated Market Maker (AMM) financial designer.
-I need to add items from various mods into the Ammora configuration file: config/exchange_custom_items.json.
+I need to add items from various mods into the Ammora configuration file: config/ammora_custom_items.json.
 
 Exchange rules:
 - Currency: ChainBX (CBX).
@@ -115,5 +115,5 @@ Here is the list of items and mods I want to add:
 3. Botania: manasteel ingot (manasteel_ingot), terrasteel ingot (terrasteel_ingot)
 ]
 
-Generate a strictly valid JSON array with no extra wrapper text, ready to paste into config/exchange_custom_items.json.
+Generate a strictly valid JSON array with no extra wrapper text, ready to paste into config/ammora_custom_items.json.
 ```

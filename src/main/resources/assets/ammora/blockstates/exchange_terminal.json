@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "ammora:block/exchange_terminal" },
+    "facing=south": { "model": "ammora:block/exchange_terminal", "y": 180 },
+    "facing=west":  { "model": "ammora:block/exchange_terminal", "y": 270 },
+    "facing=east":  { "model": "ammora:block/exchange_terminal", "y": 90 }
+  }
+}

@@ -8,14 +8,14 @@ This guide explains how **Ammora** internationalization works and how to transla
 
 All translations reside in standard Minecraft JSON language files:
 ```text
-src/main/resources/assets/exchange/lang/
+src/main/resources/assets/ammora/lang/
 ├── en_us.json    <-- English (Default baseline)
 └── ru_ru.json    <-- Russian (Full localization)
 ```
 
 Translations can also be applied at runtime **without recompiling the mod via a standard Resource Pack**:
 ```text
-your_resourcepack/assets/exchange/lang/<locale_code>.json
+your_resourcepack/assets/ammora/lang/<locale_code>.json
 ```
 
 ### Common Locale Codes:

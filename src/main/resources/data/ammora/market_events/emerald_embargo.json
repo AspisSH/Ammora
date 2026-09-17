@@ -1,0 +1,11 @@
+{
+  "id": "emerald_embargo",
+  "title": "Villager Trade Embargo",
+  "titleKey": "event.ammora.emerald_embargo.title",
+  "description": "Villages suspended emerald exports. Exchange spot price jumped +40%!",
+  "descriptionKey": "event.ammora.emerald_embargo.desc",
+  "resourceId": "minecraft:emerald",
+  "priceMultiplier": 0.40,
+  "durationDays": 2,
+  "weight": 8
+}

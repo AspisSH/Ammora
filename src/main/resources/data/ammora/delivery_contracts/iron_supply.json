@@ -1,0 +1,11 @@
+{
+  "id": "iron_supply",
+  "title": "Government Order: Iron Supply Batch",
+  "titleKey": "contract.ammora.iron_supply.title",
+  "resourceId": "minecraft:iron_ingot",
+  "minAmount": 64,
+  "maxAmount": 128,
+  "pricePerUnit": 15.0,
+  "collateralCbx": 100.0,
+  "requiredReputation": 150
+}

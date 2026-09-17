@@ -8,7 +8,7 @@
 
 Файл настроек создается автоматически при первом запуске сервера или клиента:
 ```text
-config/exchange_custom_items.json
+config/ammora_custom_items.json
 ```
 *(Если файл отсутствует, мод сгенерирует заготовку с примерами латуни, цинка и стали)*.
 
@@ -94,7 +94,7 @@ config/exchange_custom_items.json
 
 ```text
 Ты — опытный экономический балансер модов Minecraft и финансовый инженер AMM (Automated Market Maker).
-Мне необходимо добавить предметы из модов в конфигурационный файл биржи ChainBX: config/exchange_custom_items.json.
+Мне необходимо добавить предметы из модов в конфигурационный файл биржи ChainBX: config/ammora_custom_items.json.
 
 Правила биржи:
 - Валюта: ChainBX (CBX).
@@ -113,11 +113,11 @@ config/exchange_custom_items.json
 3. Botania: манасталь (manasteel_ingot), террасталь (terrasteel_ingot)
 ]
 
-Сгенерируй строго валидный JSON-массив без лишнего текста вокруг, готовый к вставке в config/exchange_custom_items.json.
+Сгенерируй строго валидный JSON-массив без лишнего текста вокруг, готовый к вставке в config/ammora_custom_items.json.
 ```
 
 ---
 
 ## Как применить изменения без перезапуска мира
-1. Отредактируйте `config/exchange_custom_items.json`.
+1. Отредактируйте `config/ammora_custom_items.json`.
 2. Перезапустите сервер или одиночный мир. Мод автоматически зарегистрирует новые позиции, а для уже существующих обновит параметры формул, бережно сохранив текущие накопленные запасы игроков!

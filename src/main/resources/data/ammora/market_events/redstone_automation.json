@@ -1,0 +1,11 @@
+{
+  "id": "redstone_automation",
+  "title": "Industrial Automation Wave",
+  "titleKey": "event.ammora.redstone_automation.title",
+  "description": "Engineers across the realm are automating machinery. Redstone demand rose +30%!",
+  "descriptionKey": "event.ammora.redstone_automation.desc",
+  "resourceId": "minecraft:redstone",
+  "priceMultiplier": 0.30,
+  "durationDays": 2,
+  "weight": 10
+}

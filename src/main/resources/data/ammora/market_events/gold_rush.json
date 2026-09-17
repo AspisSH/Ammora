@@ -1,0 +1,11 @@
+{
+  "id": "gold_rush",
+  "title": "Gold Rush in the Nether",
+  "titleKey": "event.ammora.gold_rush.title",
+  "description": "Massive gold inflow from the Nether. Supply jumped, spot price down 25%.",
+  "descriptionKey": "event.ammora.gold_rush.desc",
+  "resourceId": "minecraft:gold_ingot",
+  "priceMultiplier": -0.25,
+  "durationDays": 2,
+  "weight": 10
+}

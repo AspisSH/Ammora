@@ -1,0 +1,11 @@
+{
+  "id": "construction_boom",
+  "title": "Construction Boom",
+  "titleKey": "event.ammora.construction_boom.title",
+  "description": "City mega-projects are buying up iron ingots for infrastructure. Iron price rose +25%!",
+  "descriptionKey": "event.ammora.construction_boom.desc",
+  "resourceId": "minecraft:iron_ingot",
+  "priceMultiplier": 0.25,
+  "durationDays": 2,
+  "weight": 10
+}

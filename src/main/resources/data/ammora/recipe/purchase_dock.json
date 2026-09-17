@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "DBD",
+    "GCG",
+    "GRG"
+  ],
+  "key": {
+    "D": {
+      "item": "minecraft:dropper"
+    },
+    "B": {
+      "item": "minecraft:barrel"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "C": {
+      "item": "ammora:exchange_terminal"
+    },
+    "R": {
+      "item": "minecraft:redstone_block"
+    }
+  },
+  "result": {
+    "id": "ammora:purchase_dock",
+    "count": 1
+  }
+}

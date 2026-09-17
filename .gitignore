@@ -1,31 +1,91 @@
-# eclipse
-bin
-*.launch
-.settings
-.metadata
-.classpath
-.project
+# ==========================================
+# 1. Gradle & Build Artifacts
+# ==========================================
+build/
+.gradle/
+out/
+bin/
+*.class
 
-# idea
-out
-*.ipr
-*.iws
-*.iml
-.idea
+# Keep the Gradle Wrapper jar!
+!gradle/wrapper/gradle-wrapper.jar
 
-# gradle
-build
-.gradle
+# ==========================================
+# 2. Minecraft Runtime & Dev Environment
+# ==========================================
+run/
+runs/
+run-data/
+run-client/
+run-server/
+run-game-test/
+crash-reports/
+logs/
+*.log
+hs_err_pid*.log
+replay_pid*.log
 
-# other
-eclipse
-run
-runs
-run-data
-
-repo
-
-# ideas for improvement
-идеи_для_доработки.md
+# ==========================================
+# 3. IDE: Visual Studio Code
+# ==========================================
 .vscode/
+
+# ==========================================
+# 4. IDE: IntelliJ IDEA
+# ==========================================
+.idea/
+*.iml
+*.iws
+*.ipr
+*.main.iml
+*.test.iml
+
+# ==========================================
+# 5. IDE: Eclipse & NetBeans
+# ==========================================
+.project
+.classpath
+.settings/
+.metadata/
+*.launch
 .eclipse/
+nbproject/
+nbbuild/
+nbdist/
+
+# ==========================================
+# 6. Operating System Files
+# ==========================================
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux / Temporary editor files
+*~
+*.swp
+*.swo
+*.bak
+
+# ==========================================
+# 7. Secrets, Signatures & Local Overrides
+# ==========================================
+*.keystore
+*.jks
+local.properties
+secret.properties
+credentials.json
+
+# ==========================================
+# 8. Personal Notes / Drafts
+# ==========================================
+идеи_для_доработки.md
+repo/

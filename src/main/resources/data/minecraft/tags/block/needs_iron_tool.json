@@ -1,9 +1,9 @@
 {
   "replace": false,
   "values": [
-    "exchange:exchange_terminal",
-    "exchange:trade_dock",
-    "exchange:purchase_dock",
-    "exchange:player_shop"
+    "ammora:exchange_terminal",
+    "ammora:trade_dock",
+    "ammora:purchase_dock",
+    "ammora:player_shop"
   ]
 }

@@ -1,8 +1,0 @@
-{
-  "variants": {
-    "facing=north": { "model": "exchange:block/purchase_dock" },
-    "facing=south": { "model": "exchange:block/purchase_dock", "y": 180 },
-    "facing=west":  { "model": "exchange:block/purchase_dock", "y": 270 },
-    "facing=east":  { "model": "exchange:block/purchase_dock", "y": 90 }
-  }
-}

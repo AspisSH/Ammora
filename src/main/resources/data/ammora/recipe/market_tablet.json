@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " I ",
+    "RMR",
+    "GWG"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "M": {
+      "item": "ammora:player_shop"
+    },
+    "G": {
+      "item": "minecraft:gold_nugget"
+    },
+    "W": {
+      "item": "ammora:cold_wallet"
+    }
+  },
+  "result": {
+    "id": "ammora:market_tablet",
+    "count": 1
+  }
+}

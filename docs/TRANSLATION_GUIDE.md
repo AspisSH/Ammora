@@ -8,14 +8,14 @@
 
 Все переводы хранятся в стандартном формате Minecraft JSON:
 ```text
-src/main/resources/assets/exchange/lang/
+src/main/resources/assets/ammora/lang/
 ├── en_us.json    <-- Международный английский язык (Базовый стандарт)
 └── ru_ru.json    <-- Русский язык (Полная локализация)
 ```
 
 Также перевод можно применять **без сборки мода через обычный Resource Pack (Текстур-пак)** по пути:
 ```text
-your_resourcepack/assets/exchange/lang/<код_языка>.json
+your_resourcepack/assets/ammora/lang/<код_языка>.json
 ```
 
 ### Примеры кодов языков:
@@ -93,7 +93,7 @@ your_resourcepack/assets/exchange/lang/<код_языка>.json
 ---
 
 ## Как проверить новый перевод в игре
-1. Поместите ваш файл (например, `zh_cn.json`) в `src/main/resources/assets/exchange/lang/` (или в ресурс-пак).
+1. Поместите ваш файл (например, `zh_cn.json`) в `src/main/resources/assets/ammora/lang/` (или в ресурс-пак).
 2. Запустите игру.
 3. В настройках языка Minecraft (`Настройки` -> `Язык...`) переключитесь на целевой язык.
 4. Все терминалы, кошельки, автоматы, планшеты и сообщения чата мгновенно переключатся на выбранный язык!
