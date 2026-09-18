@@ -89,7 +89,7 @@ public class TerminalScreen extends Screen {
     private static final int COLOR_TEXT_MUTED = 0xFF9E9284;
 
     public TerminalScreen(MarketDataPayload initialData) {
-        super(Component.literal("Exchange Terminal"));
+        super(Component.translatable("gui.ammora.terminal.title"));
         this.data = initialData;
         if (initialData != null) {
             this.tempRedstoneMode = initialData.redstoneMode();

@@ -145,7 +145,11 @@ public class TradeSessionManager {
     }
 
     public void onPlayerDisconnect(ServerPlayer player) {
-        UUID sessionId = playerToSession.get(player.getUUID());
+        UUID playerUuid = player.getUUID();
+        pendingInvites.remove(playerUuid);
+        pendingInvites.entrySet().removeIf(entry -> entry.getValue().senderUuid().equals(playerUuid));
+
+        UUID sessionId = playerToSession.get(playerUuid);
         if (sessionId != null) {
             TradeSession session = activeSessions.get(sessionId);
             if (session != null) {

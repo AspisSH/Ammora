@@ -51,7 +51,7 @@ public class PlayerShopScreen extends Screen {
     private static final int COLOR_TEXT_MUTED = 0xFF7E8FA4;
 
     public PlayerShopScreen(PlayerShopDataPayload initialData) {
-        super(Component.literal("Player Shop"));
+        super(Component.translatable("gui.ammora.shop.title"));
         this.data = initialData;
         checkNotification(initialData);
     }

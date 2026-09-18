@@ -121,7 +121,7 @@ public final class OrderPacketHandler {
                     } else {
                         double fee = Math.abs(result.cbxAmount());
                         player.sendSystemMessage(Component.translatable("message.ammora.terminal.recycle_fee_paid", amount, MarketEngine.round2(fee)));
-                        sendMarketDataToClient(player, resId, "key:message.ammora.recycle_fee_paid;" + amount + ";" + MarketEngine.round2(fee), false);
+                        sendMarketDataToClient(player, resId, "key:message.ammora.terminal.recycle_fee_paid;" + amount + ";" + MarketEngine.round2(fee), false);
                     }
                 } else {
                     player.sendSystemMessage(Component.translatable("message.ammora.terminal.sell_error", result.message()));

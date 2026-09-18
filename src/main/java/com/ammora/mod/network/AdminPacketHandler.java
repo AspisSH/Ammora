@@ -6,6 +6,7 @@ import com.ammora.mod.core.MarketResource;
 import com.ammora.mod.core.events.MarketEvent;
 import com.ammora.mod.db.MarketTxRecord;
 import com.ammora.mod.db.PlayerAccount;
+import com.ammora.mod.util.AmmoraLang;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -26,10 +27,10 @@ public class AdminPacketHandler {
      */
     public static void openAdminScreen(ServerPlayer player) {
         if (!player.hasPermissions(2)) {
-            player.sendSystemMessage(Component.literal("§c[AMMORA] У вас нет прав оператора для доступа к админ-панели."));
+            player.sendSystemMessage(Component.translatable("command.ammora.admin.no_permission"));
             return;
         }
-        sendAdminData(player, "Панель администратора готова", false);
+        sendAdminData(player, AmmoraLang.notify("admin.ready"), false);
     }
 
     /**
@@ -55,9 +56,9 @@ public class AdminPacketHandler {
                     acc.setBalanceCbx(newBal);
                     AmmoraMod.getMarketDAO().saveAccount(acc);
                     notifyTargetPlayerIfOnline(player.getServer(), targetUuid,
-                            "§6[AMMORA] Администратор установил ваш баланс на §a" + String.format(Locale.US, "%.2f", newBal) + " CBX");
+                            Component.translatable("message.ammora.admin.balance_set_notify", String.format(Locale.US, "%.2f", newBal)));
                     AmmoraMod.LOGGER.info("Admin {} set balance of {} to {} CBX", player.getName().getString(), acc.getPlayerName(), newBal);
-                    sendAdminData(player, "Баланс " + acc.getPlayerName() + " установлен на " + String.format(Locale.US, "%.2f", newBal) + " CBX", false);
+                    sendAdminData(player, AmmoraLang.notify("admin.balance_set", acc.getPlayerName(), String.format(Locale.US, "%.2f", newBal)), false);
                 }
                 case "ADD_BALANCE" -> {
                     UUID targetUuid = UUID.fromString(targetId);
@@ -66,9 +67,9 @@ public class AdminPacketHandler {
                     acc.deposit(addAmt);
                     AmmoraMod.getMarketDAO().saveAccount(acc);
                     notifyTargetPlayerIfOnline(player.getServer(), targetUuid,
-                            "§6[AMMORA] Администратор начислил вам §a+" + String.format(Locale.US, "%.2f", addAmt) + " CBX");
+                            Component.translatable("message.ammora.admin.balance_add_notify", String.format(Locale.US, "%.2f", addAmt)));
                     AmmoraMod.LOGGER.info("Admin {} added {} CBX to {}", player.getName().getString(), addAmt, acc.getPlayerName());
-                    sendAdminData(player, "Начислено +" + String.format(Locale.US, "%.2f", addAmt) + " CBX игроку " + acc.getPlayerName(), false);
+                    sendAdminData(player, AmmoraLang.notify("admin.balance_added", String.format(Locale.US, "%.2f", addAmt), acc.getPlayerName()), false);
                 }
                 case "SUB_BALANCE" -> {
                     UUID targetUuid = UUID.fromString(targetId);
@@ -77,9 +78,9 @@ public class AdminPacketHandler {
                     acc.withdraw(subAmt);
                     AmmoraMod.getMarketDAO().saveAccount(acc);
                     notifyTargetPlayerIfOnline(player.getServer(), targetUuid,
-                            "§6[AMMORA] Администратор списал с вашего баланса §c-" + String.format(Locale.US, "%.2f", subAmt) + " CBX");
+                            Component.translatable("message.ammora.admin.balance_sub_notify", String.format(Locale.US, "%.2f", subAmt)));
                     AmmoraMod.LOGGER.info("Admin {} deducted {} CBX from {}", player.getName().getString(), subAmt, acc.getPlayerName());
-                    sendAdminData(player, "Списано -" + String.format(Locale.US, "%.2f", subAmt) + " CBX у игрока " + acc.getPlayerName(), false);
+                    sendAdminData(player, AmmoraLang.notify("admin.balance_subbed", String.format(Locale.US, "%.2f", subAmt), acc.getPlayerName()), false);
                 }
                 case "TRIGGER_EVENT" -> {
                     var eventMgr = AmmoraMod.getMarketEventManager();
@@ -103,14 +104,14 @@ public class AdminPacketHandler {
                             eventMgr.setActiveEvent(newEvent, AmmoraMod.getMarketManager());
                             if (player.getServer() != null) {
                                 player.getServer().getPlayerList().broadcastSystemMessage(
-                                        Component.literal("§6[AMMORA] §eРЫНОЧНОЕ СОБЫТИЕ: §6«" + newEvent.getTitle() + "»! §f" + newEvent.getDescription()),
+                                        Component.translatable("message.ammora.admin.event_broadcast", newEvent.getTitle(), newEvent.getDescription()),
                                         false
                                 );
                             }
                             AmmoraMod.LOGGER.info("Admin {} triggered market event: {} for {} days", player.getName().getString(), newEvent.getTitle(), durationDays);
-                            sendAdminData(player, "Событие «" + newEvent.getTitle() + "» успешно запущено на " + durationDays + " дн.", false);
+                            sendAdminData(player, AmmoraLang.notify("admin.event_triggered", newEvent.getTitle(), String.valueOf(durationDays)), false);
                         } else {
-                            sendAdminData(player, "Шаблон события не найден", true);
+                            sendAdminData(player, AmmoraLang.notify("admin.event_not_found"), true);
                         }
                     }
                 }
@@ -122,14 +123,14 @@ public class AdminPacketHandler {
                         eventMgr.setActiveEvent(null, AmmoraMod.getMarketManager());
                         if (player.getServer() != null) {
                             player.getServer().getPlayerList().broadcastSystemMessage(
-                                    Component.literal("§6[AMMORA] §aСобытие «" + oldTitle + "» завершено. Рынок стабилизировался."),
+                                    Component.translatable("message.ammora.admin.event_stopped_broadcast", oldTitle),
                                     false
                             );
                         }
                         AmmoraMod.LOGGER.info("Admin {} stopped active market event {}", player.getName().getString(), oldTitle);
-                        sendAdminData(player, "Событие «" + oldTitle + "» досрочно остановлено", false);
+                        sendAdminData(player, AmmoraLang.notify("admin.event_stopped", oldTitle), false);
                     } else {
-                        sendAdminData(player, "Нет активного события для остановки", false);
+                        sendAdminData(player, AmmoraLang.notify("admin.no_active_event"), false);
                     }
                 }
                 case "SET_BASE_PRICE" -> {
@@ -145,9 +146,9 @@ public class AdminPacketHandler {
                                 marketMgr.recordMarketEventCandle(res, oldSpot, newSpot);
                             } catch (Exception ignored) {}
                             AmmoraMod.LOGGER.info("Admin {} changed base price of {} to {}", player.getName().getString(), res.getDisplayName(), res.getBasePrice());
-                            sendAdminData(player, "Базовая цена " + res.getDisplayName() + " установлена на " + String.format(Locale.US, "%.2f", res.getBasePrice()) + " CBX", false);
+                            sendAdminData(player, AmmoraLang.notify("admin.base_price_set", res.getDisplayName(), String.format(Locale.US, "%.2f", res.getBasePrice())), false);
                         } else {
-                            sendAdminData(player, "Ресурс не найден: " + targetId, true);
+                            sendAdminData(player, AmmoraLang.notify("admin.resource_not_found", targetId), true);
                         }
                     }
                 }
@@ -164,9 +165,9 @@ public class AdminPacketHandler {
                                 marketMgr.recordMarketEventCandle(res, oldSpot, newSpot);
                             } catch (Exception ignored) {}
                             AmmoraMod.LOGGER.info("Admin {} set price modifier of {} to {}%", player.getName().getString(), res.getDisplayName(), numVal * 100.0);
-                            sendAdminData(player, "Модификатор цены " + res.getDisplayName() + " установлен на " + String.format(Locale.US, "%+.1f%%", numVal * 100.0), false);
+                            sendAdminData(player, AmmoraLang.notify("admin.modifier_set", res.getDisplayName(), String.format(Locale.US, "%+.1f%%", numVal * 100.0)), false);
                         } else {
-                            sendAdminData(player, "Ресурс не найден: " + targetId, true);
+                            sendAdminData(player, AmmoraLang.notify("admin.resource_not_found", targetId), true);
                         }
                     }
                 }
@@ -183,20 +184,20 @@ public class AdminPacketHandler {
                                 marketMgr.recordMarketEventCandle(res, oldSpot, newSpot);
                             } catch (Exception ignored) {}
                             AmmoraMod.LOGGER.info("Admin {} set stock of {} to {}", player.getName().getString(), res.getDisplayName(), res.getCurrentStock());
-                            sendAdminData(player, "Пул резерва " + res.getDisplayName() + " установлен на " + (long) res.getCurrentStock() + " шт.", false);
+                            sendAdminData(player, AmmoraLang.notify("admin.stock_set", res.getDisplayName(), String.valueOf((long) res.getCurrentStock())), false);
                         } else {
-                            sendAdminData(player, "Ресурс не найден: " + targetId, true);
+                            sendAdminData(player, AmmoraLang.notify("admin.resource_not_found", targetId), true);
                         }
                     }
                 }
                 case "REFRESH" -> {
-                    sendAdminData(player, "Данные обновлены", false);
+                    sendAdminData(player, AmmoraLang.notify("admin.refreshed"), false);
                 }
-                default -> sendAdminData(player, "Неизвестное действие: " + action, true);
+                default -> sendAdminData(player, AmmoraLang.notify("admin.unknown_action", action), true);
             }
         } catch (Exception e) {
             AmmoraMod.LOGGER.error("Error executing admin action " + action, e);
-            sendAdminData(player, "Ошибка: " + e.getMessage(), true);
+            sendAdminData(player, AmmoraLang.notify("admin.error", e.getMessage()), true);
         }
     }
 
@@ -299,15 +300,15 @@ public class AdminPacketHandler {
             PacketDistributor.sendToPlayer(player, payload);
         } catch (Exception e) {
             AmmoraMod.LOGGER.error("Failed to gather admin data for player: " + player.getName().getString(), e);
-            player.sendSystemMessage(Component.literal("§c[AMMORA] Ошибка получения данных для админ-панели: " + e.getMessage()));
+            player.sendSystemMessage(Component.translatable("message.ammora.admin.err_fetch", e.getMessage()));
         }
     }
 
-    private static void notifyTargetPlayerIfOnline(net.minecraft.server.MinecraftServer server, UUID targetUuid, String msg) {
+    private static void notifyTargetPlayerIfOnline(net.minecraft.server.MinecraftServer server, UUID targetUuid, Component msg) {
         if (server == null) return;
         ServerPlayer target = server.getPlayerList().getPlayer(targetUuid);
         if (target != null) {
-            target.sendSystemMessage(Component.literal(msg));
+            target.sendSystemMessage(msg);
         }
     }
 }

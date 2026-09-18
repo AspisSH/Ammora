@@ -310,6 +310,35 @@ public class TradeSession {
         }
     }
 
+    private void returnOrBufferItems(MinecraftServer server, UUID playerUuid, ServerPlayer player, ItemStack[] items) {
+        for (ItemStack s : items) {
+            if (s != null && !s.isEmpty()) {
+                if (player != null) {
+                    if (!player.getInventory().add(s)) {
+                        player.drop(s, false);
+                    }
+                } else {
+                    // Player is offline/disconnected: save to unclaimed delivery buffer so items are never lost!
+                    try {
+                        String nbt = "";
+                        try {
+                            net.minecraft.nbt.Tag t = s.saveOptional(server.registryAccess());
+                            if (t != null) nbt = t.getAsString();
+                        } catch (Exception ignored) {}
+                        String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(s.getItem()).toString();
+                        if (AmmoraMod.getMarketDAO() != null) {
+                            AmmoraMod.getMarketDAO().saveUnclaimedDelivery(
+                                    UUID.randomUUID().toString(), playerUuid, itemId, s.getCount(), System.currentTimeMillis(), nbt
+                            );
+                        }
+                    } catch (Exception e) {
+                        org.slf4j.LoggerFactory.getLogger("Ammora").error("Failed to buffer offline trade items for " + playerUuid, e);
+                    }
+                }
+            }
+        }
+    }
+
     public synchronized void cancel(MinecraftServer server, String reason) {
         if (finished) return;
         finished = true;
@@ -317,28 +346,16 @@ public class TradeSession {
         ServerPlayer pA = server.getPlayerList().getPlayer(playerAUuid);
         ServerPlayer pB = server.getPlayerList().getPlayer(playerBUuid);
 
-        // Safely return items to Player A
+        // Safely return or buffer items for Player A
+        returnOrBufferItems(server, playerAUuid, pA, itemsA);
         if (pA != null) {
-            for (ItemStack s : itemsA) {
-                if (!s.isEmpty()) {
-                    if (!pA.getInventory().add(s)) {
-                        pA.drop(s, false);
-                    }
-                }
-            }
             pA.sendSystemMessage(createCancelMessage(reason));
             PacketDistributor.sendToPlayer(pA, createPayload(true, "key:trade.status_cancelled", true, false));
         }
 
-        // Safely return items to Player B
+        // Safely return or buffer items for Player B
+        returnOrBufferItems(server, playerBUuid, pB, itemsB);
         if (pB != null) {
-            for (ItemStack s : itemsB) {
-                if (!s.isEmpty()) {
-                    if (!pB.getInventory().add(s)) {
-                        pB.drop(s, false);
-                    }
-                }
-            }
             pB.sendSystemMessage(createCancelMessage(reason));
             PacketDistributor.sendToPlayer(pB, createPayload(false, "key:trade.status_cancelled", true, false));
         }

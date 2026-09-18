@@ -49,7 +49,7 @@ public class SecureTradeScreen extends Screen {
     private long notificationExpireTime = 0;
 
     public SecureTradeScreen(ClientboundTradeSyncPayload initialData) {
-        super(Component.literal("Secure P2P Trade"));
+        super(Component.translatable("gui.ammora.trade.title"));
         this.data = initialData;
         checkNotification(initialData);
     }

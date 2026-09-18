@@ -76,7 +76,7 @@ public class AdminScreen extends Screen {
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM HH:mm", Locale.getDefault());
 
     public AdminScreen(ClientboundAdminDataPayload data) {
-        super(Component.literal("Ammora Admin Console"));
+        super(Component.translatable("gui.ammora.admin.title"));
         this.data = data;
         if (data != null && !data.statusMessage().isEmpty()) {
             triggerNotification(data.statusMessage(), data.isError());
@@ -103,7 +103,7 @@ public class AdminScreen extends Screen {
     }
 
     private void triggerNotification(String message, boolean error) {
-        this.statusNotification = message;
+        this.statusNotification = AmmoraLang.translateNotification(message);
         this.statusNotificationError = error;
         this.notificationExpireTime = System.currentTimeMillis() + 3500L;
     }
@@ -123,22 +123,22 @@ public class AdminScreen extends Screen {
         int tabH = 16;
         int tabY = my + 26;
 
-        this.addRenderableWidget(Button.builder(Component.literal(activeTab == 0 ? "§b▶ Балансы" : "§7Балансы"), b -> {
+        this.addRenderableWidget(Button.builder(Component.literal(activeTab == 0 ? "§b▶ " : "§7").append(AmmoraLang.gui("admin.tab_balances")), b -> {
             activeTab = 0;
             rebuildWidgets();
         }).bounds(mx + 10, tabY, tabW, tabH).build());
 
-        this.addRenderableWidget(Button.builder(Component.literal(activeTab == 1 ? "§b▶ События" : "§7События"), b -> {
+        this.addRenderableWidget(Button.builder(Component.literal(activeTab == 1 ? "§b▶ " : "§7").append(AmmoraLang.gui("admin.tab_events")), b -> {
             activeTab = 1;
             rebuildWidgets();
         }).bounds(mx + 100, tabY, tabW, tabH).build());
 
-        this.addRenderableWidget(Button.builder(Component.literal(activeTab == 2 ? "§b▶ Курсы AMM" : "§7Курсы AMM"), b -> {
+        this.addRenderableWidget(Button.builder(Component.literal(activeTab == 2 ? "§b▶ " : "§7").append(AmmoraLang.gui("admin.tab_rates")), b -> {
             activeTab = 2;
             rebuildWidgets();
         }).bounds(mx + 190, tabY, tabW, tabH).build());
 
-        this.addRenderableWidget(Button.builder(Component.literal(activeTab == 3 ? "§b▶ Логи сделок" : "§7Логи сделок"), b -> {
+        this.addRenderableWidget(Button.builder(Component.literal(activeTab == 3 ? "§b▶ " : "§7").append(AmmoraLang.gui("admin.tab_logs")), b -> {
             activeTab = 3;
             rebuildWidgets();
         }).bounds(mx + 280, tabY, tabW, tabH).build());
@@ -146,7 +146,7 @@ public class AdminScreen extends Screen {
         // Refresh and Close buttons in header
         this.addRenderableWidget(Button.builder(Component.literal("🔄"), b -> {
             PacketDistributor.sendToServer(new ServerboundAdminActionPayload("REFRESH", "", 0, ""));
-        }).bounds(mx + mw - 46, my + 5, 18, 16).tooltip(Tooltip.create(Component.literal("Обновить данные"))).build());
+        }).bounds(mx + mw - 46, my + 5, 18, 16).tooltip(Tooltip.create(AmmoraLang.gui("admin.refresh_tooltip"))).build());
 
         this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> this.onClose())
                 .bounds(mx + mw - 24, my + 5, 18, 16).build());
@@ -167,7 +167,7 @@ public class AdminScreen extends Screen {
     // TAB 0: BALANCES
     // =========================================================================
     private void initBalancesTab(int mx, int my, int mw, int mh) {
-        accountSearchBox = new EditBox(this.font, mx + 10, my + 46, 75, 14, Component.literal("Поиск игрока"));
+        accountSearchBox = new EditBox(this.font, mx + 10, my + 46, 75, 14, AmmoraLang.gui("admin.search_player"));
         accountSearchBox.setValue(lastAccountSearch);
         accountSearchBox.setResponder(val -> {
             lastAccountSearch = val;
@@ -215,12 +215,12 @@ public class AdminScreen extends Screen {
             int rx = mx + 180;
             int ry = my + 64;
 
-            balanceAmountInput = new EditBox(this.font, rx, ry + 40, 90, 16, Component.literal("Сумма CBX"));
+            balanceAmountInput = new EditBox(this.font, rx, ry + 40, 90, 16, AmmoraLang.gui("admin.amount_cbx"));
             balanceAmountInput.setValue(String.format(Locale.US, "%.2f", selectedAccount.balanceCbx()));
             this.addRenderableWidget(balanceAmountInput);
 
             // Set exact balance
-            this.addRenderableWidget(Button.builder(Component.literal("§eУстановить"), b -> {
+            this.addRenderableWidget(Button.builder(Component.literal("§e").append(AmmoraLang.gui("admin.btn_set")), b -> {
                 double val = parseDouble(balanceAmountInput.getValue());
                 if (val >= 0) {
                     PacketDistributor.sendToServer(new ServerboundAdminActionPayload(
@@ -230,7 +230,7 @@ public class AdminScreen extends Screen {
             }).bounds(rx + 95, ry + 40, 85, 16).build());
 
             // Add (+) balance
-            this.addRenderableWidget(Button.builder(Component.literal("§a+ Начислить"), b -> {
+            this.addRenderableWidget(Button.builder(Component.literal("§a+ ").append(AmmoraLang.gui("admin.btn_add")), b -> {
                 double val = parseDouble(balanceAmountInput.getValue());
                 if (val > 0) {
                     PacketDistributor.sendToServer(new ServerboundAdminActionPayload(
@@ -240,7 +240,7 @@ public class AdminScreen extends Screen {
             }).bounds(rx, ry + 60, 90, 16).build());
 
             // Deduct (-) balance
-            this.addRenderableWidget(Button.builder(Component.literal("§c- Списать"), b -> {
+            this.addRenderableWidget(Button.builder(Component.literal("§c- ").append(AmmoraLang.gui("admin.btn_sub")), b -> {
                 double val = parseDouble(balanceAmountInput.getValue());
                 if (val > 0) {
                     PacketDistributor.sendToServer(new ServerboundAdminActionPayload(
@@ -268,7 +268,7 @@ public class AdminScreen extends Screen {
                 ));
             }).bounds(rx + 90, ry + 80, 44, 16).build());
 
-            this.addRenderableWidget(Button.builder(Component.literal("Обнулить"), b -> {
+            this.addRenderableWidget(Button.builder(AmmoraLang.gui("admin.btn_reset_zero"), b -> {
                 PacketDistributor.sendToServer(new ServerboundAdminActionPayload(
                         "SET_BALANCE", selectedAccount.playerUuid().toString(), 0.0, selectedAccount.playerName()
                 ));
@@ -291,13 +291,13 @@ public class AdminScreen extends Screen {
     private void initEventsTab(int mx, int my, int mw, int mh) {
         // Stop Active Event button
         if (data.activeEventId() != null && !data.activeEventId().isEmpty()) {
-            this.addRenderableWidget(Button.builder(Component.literal("§c⏹ Завершить досрочно"), b -> {
+            this.addRenderableWidget(Button.builder(Component.literal("§c⏹ ").append(AmmoraLang.gui("admin.btn_stop_early")), b -> {
                 PacketDistributor.sendToServer(new ServerboundAdminActionPayload("STOP_EVENT", "", 0, ""));
             }).bounds(mx + mw - 142, my + 52, 126, 20).build());
         }
 
         // Duration Input for new events
-        eventDurationInput = new EditBox(this.font, mx + 240, my + 82, 35, 14, Component.literal("Дни"));
+        eventDurationInput = new EditBox(this.font, mx + 240, my + 82, 35, 14, AmmoraLang.gui("admin.days"));
         eventDurationInput.setValue("3");
         this.addRenderableWidget(eventDurationInput);
 
@@ -324,7 +324,7 @@ public class AdminScreen extends Screen {
             if (idx < templates.size()) {
                 var tmpl = templates.get(idx);
                 int cardY = my + 102 + i * 40;
-                this.addRenderableWidget(Button.builder(Component.literal("§a▶ Запустить"), b -> {
+                this.addRenderableWidget(Button.builder(Component.literal("§a▶ ").append(AmmoraLang.gui("admin.btn_launch")), b -> {
                     int days = (int) parseDouble(eventDurationInput != null ? eventDurationInput.getValue() : "3");
                     if (days <= 0) days = 3;
                     PacketDistributor.sendToServer(new ServerboundAdminActionPayload(
@@ -379,11 +379,11 @@ public class AdminScreen extends Screen {
             int ry = my + 46;
 
             // 1. Base Price P0 (Label at ry + 32, Input & Button at ry + 44)
-            resourceBasePriceInput = new EditBox(this.font, rx, ry + 44, 88, 16, Component.literal("Базовая P0"));
+            resourceBasePriceInput = new EditBox(this.font, rx, ry + 44, 88, 16, AmmoraLang.gui("admin.base_price_p0"));
             resourceBasePriceInput.setValue(String.format(Locale.US, "%.2f", selectedResource.basePrice()));
             this.addRenderableWidget(resourceBasePriceInput);
 
-            this.addRenderableWidget(Button.builder(Component.literal("Задать P₀"), b -> {
+            this.addRenderableWidget(Button.builder(AmmoraLang.gui("admin.btn_set_p0"), b -> {
                 double val = parseDouble(resourceBasePriceInput.getValue());
                 if (val > 0) {
                     PacketDistributor.sendToServer(new ServerboundAdminActionPayload(
@@ -393,11 +393,11 @@ public class AdminScreen extends Screen {
             }).bounds(rx + 94, ry + 44, 84, 16).build());
 
             // 2. Modifier (+/- multiplier) (Label at ry + 66, Input & Button at ry + 78)
-            resourceModifierInput = new EditBox(this.font, rx, ry + 78, 88, 16, Component.literal("Модификатор"));
+            resourceModifierInput = new EditBox(this.font, rx, ry + 78, 88, 16, AmmoraLang.gui("admin.modifier"));
             resourceModifierInput.setValue(String.format(Locale.US, "%.2f", selectedResource.dailyModifier()));
             this.addRenderableWidget(resourceModifierInput);
 
-            this.addRenderableWidget(Button.builder(Component.literal("Задать мод."), b -> {
+            this.addRenderableWidget(Button.builder(AmmoraLang.gui("admin.btn_set_mod"), b -> {
                 double val = parseDouble(resourceModifierInput.getValue());
                 PacketDistributor.sendToServer(new ServerboundAdminActionPayload(
                         "SET_MODIFIER", selectedResource.resourceId(), val, ""
@@ -405,11 +405,11 @@ public class AdminScreen extends Screen {
             }).bounds(rx + 94, ry + 78, 84, 16).build());
 
             // 3. Current Stock Pool (S) (Label at ry + 100, Input & Button at ry + 112)
-            resourceStockInput = new EditBox(this.font, rx, ry + 112, 88, 16, Component.literal("Резерв склада"));
+            resourceStockInput = new EditBox(this.font, rx, ry + 112, 88, 16, AmmoraLang.gui("admin.reserve_stock"));
             resourceStockInput.setValue(String.format(Locale.US, "%.0f", selectedResource.currentStock()));
             this.addRenderableWidget(resourceStockInput);
 
-            this.addRenderableWidget(Button.builder(Component.literal("Задать запас"), b -> {
+            this.addRenderableWidget(Button.builder(AmmoraLang.gui("admin.btn_set_stock"), b -> {
                 double val = parseDouble(resourceStockInput.getValue());
                 if (val > 0) {
                     PacketDistributor.sendToServer(new ServerboundAdminActionPayload(
@@ -419,7 +419,7 @@ public class AdminScreen extends Screen {
             }).bounds(rx + 94, ry + 112, 84, 16).build());
 
             // Quick reset modifier button (Button at ry + 136)
-            this.addRenderableWidget(Button.builder(Component.literal("Сбросить модификатор (0%)"), b -> {
+            this.addRenderableWidget(Button.builder(AmmoraLang.gui("admin.btn_reset_mod"), b -> {
                 PacketDistributor.sendToServer(new ServerboundAdminActionPayload(
                         "SET_MODIFIER", selectedResource.resourceId(), 0.0, ""
                 ));
@@ -431,7 +431,7 @@ public class AdminScreen extends Screen {
     // TAB 3: LOGS
     // =========================================================================
     private void initLogsTab(int mx, int my, int mw, int mh) {
-        logSearchBox = new EditBox(this.font, mx + 10, my + 46, 160, 14, Component.literal("Поиск сделки"));
+        logSearchBox = new EditBox(this.font, mx + 10, my + 46, 160, 14, AmmoraLang.gui("admin.search_logs"));
         logSearchBox.setValue(lastLogSearch);
         logSearchBox.setResponder(val -> {
             lastLogSearch = val;
@@ -478,7 +478,7 @@ public class AdminScreen extends Screen {
         gg.fill(0, 0, this.width, this.height, 0xCC000000);
 
         if (data == null) {
-            gg.drawCenteredString(this.font, "Загрузка панели администратора...", this.width / 2, this.height / 2, 0xFFFFFFFF);
+            gg.drawCenteredString(this.font, AmmoraLang.guiStr("admin.loading"), this.width / 2, this.height / 2, 0xFFFFFFFF);
             super.render(gg, mouseX, mouseY, partialTicks);
             return;
         }
@@ -495,7 +495,7 @@ public class AdminScreen extends Screen {
         // Header
         gg.fill(mx + 1, my + 1, mx + mw - 1, my + 24, COLOR_PANEL_HEADER);
         gg.hLine(mx + 1, mx + mw - 1, my + 24, COLOR_BORDER_MUTED);
-        gg.drawString(this.font, "§c✦ АДМИН-ПАНЕЛЬ AMMORA ✦ §8(Оператор)", mx + 10, my + 8, 0xFFFFFFFF);
+        gg.drawString(this.font, "§c✦ " + AmmoraLang.guiStr("admin.header_title") + " ✦ §8(" + AmmoraLang.guiStr("admin.header_operator") + ")", mx + 10, my + 8, 0xFFFFFFFF);
 
         // Active Tab Rendering
         if (activeTab == 0) {
@@ -536,12 +536,12 @@ public class AdminScreen extends Screen {
         drawOutlinedBox(gg, rx - 5, ry - 18, (mx + mw - 10) - (rx - 5), (my + mh - 10) - (ry - 18), COLOR_BORDER_MUTED);
 
         if (selectedAccount != null) {
-            gg.drawString(this.font, "§eИгрок: §f" + selectedAccount.playerName(), rx, ry - 12, 0xFFFFFFFF);
-            gg.drawString(this.font, "§7Баланс: §a" + String.format(Locale.US, "%.2f CBX", selectedAccount.balanceCbx()), rx, ry + 2, 0xFFFFFFFF);
-            gg.drawString(this.font, "§7Репутация: §6Lvl " + selectedAccount.repLevel() + " §8(" + selectedAccount.repPoints() + " pts)", rx, ry + 14, 0xFFFFFFFF);
+            gg.drawString(this.font, "§e" + AmmoraLang.guiStr("admin.player_label") + ": §f" + selectedAccount.playerName(), rx, ry - 12, 0xFFFFFFFF);
+            gg.drawString(this.font, "§7" + AmmoraLang.guiStr("admin.balance_label") + ": §a" + String.format(Locale.US, "%.2f CBX", selectedAccount.balanceCbx()), rx, ry + 2, 0xFFFFFFFF);
+            gg.drawString(this.font, "§7" + AmmoraLang.guiStr("admin.rep_label") + ": §6Lvl " + selectedAccount.repLevel() + " §8(" + selectedAccount.repPoints() + " pts)", rx, ry + 14, 0xFFFFFFFF);
             gg.drawString(this.font, "§8UUID: " + truncate(selectedAccount.playerUuid().toString(), 22), rx, ry + 26, 0xFFFFFFFF);
         } else {
-            gg.drawCenteredString(this.font, "§8Выберите игрока из списка слева", rx + 95, ry + 50, 0xFFFFFFFF);
+            gg.drawCenteredString(this.font, "§8" + AmmoraLang.guiStr("admin.select_player_prompt"), rx + 95, ry + 50, 0xFFFFFFFF);
         }
     }
 
@@ -552,16 +552,16 @@ public class AdminScreen extends Screen {
         drawOutlinedBox(gg, mx + 10, activeBoxY, mw - 20, 32, data.activeEventId().isEmpty() ? COLOR_BORDER_MUTED : COLOR_GOLD);
 
         if (!data.activeEventId().isEmpty()) {
-            String actTitle = "§6⚡ " + data.activeEventTitle() + " §8(Осталось: §e" + data.activeEventRemainingDays() + " дн.§8)";
+            String actTitle = "§6⚡ " + data.activeEventTitle() + " §8(" + AmmoraLang.guiStr("admin.active_event_left", data.activeEventRemainingDays()) + "§8)";
             gg.drawString(this.font, actTitle, mx + 16, activeBoxY + 6, 0xFFFFFFFF);
             gg.drawString(this.font, "§7" + truncate(data.activeEventDesc(), 34), mx + 16, activeBoxY + 18, 0xFFFFFFFF);
         } else {
-            gg.drawString(this.font, "§7Рыночные события: §aРынок стабилен, активных аномалий нет", mx + 16, activeBoxY + 12, 0xFFFFFFFF);
+            gg.drawString(this.font, "§7" + AmmoraLang.guiStr("admin.no_active_events"), mx + 16, activeBoxY + 12, 0xFFFFFFFF);
         }
 
         // Templates catalog header
-        gg.drawString(this.font, "§bШаблоны событий:", mx + 10, my + 85, 0xFFFFFFFF);
-        gg.drawString(this.font, "§7Длит. (дней):", mx + 165, my + 85, 0xFFFFFFFF);
+        gg.drawString(this.font, "§b" + AmmoraLang.guiStr("admin.event_templates"), mx + 10, my + 85, 0xFFFFFFFF);
+        gg.drawString(this.font, "§7" + AmmoraLang.guiStr("admin.duration_days"), mx + 165, my + 85, 0xFFFFFFFF);
 
         var templates = data.eventTemplates();
         int startIdx = eventPage * 3;
@@ -575,10 +575,9 @@ public class AdminScreen extends Screen {
 
                 String sign = tmpl.multiplier() >= 0 ? "+": "";
                 String pct = String.format(Locale.US, "%s%.0f%%", sign, tmpl.multiplier() * 100);
-                int color = tmpl.multiplier() >= 0 ? COLOR_RED : COLOR_GREEN;
 
                 gg.drawString(this.font, "§f" + tmpl.title() + " §8[" + tmpl.id() + "]", mx + 16, cardY + 6, 0xFFFFFFFF);
-                gg.drawString(this.font, "§7Эффект: §e" + pct + " §8на " + tmpl.resourceId(), mx + 16, cardY + 18, 0xFFFFFFFF);
+                gg.drawString(this.font, "§7" + AmmoraLang.guiStr("admin.event_effect", pct, tmpl.resourceId()), mx + 16, cardY + 18, 0xFFFFFFFF);
             }
         }
     }
@@ -586,7 +585,7 @@ public class AdminScreen extends Screen {
     private void renderRatesTab(GuiGraphics gg, int mx, int my, int mw, int mh) {
         var resources = data.resources();
         int totalPages = Math.max(1, (resources.size() + 4) / 5);
-        String pageStr = "§7Стр. §f" + (resourcePage + 1) + "/" + totalPages + " §8(" + resources.size() + ")";
+        String pageStr = "§7" + AmmoraLang.guiStr("admin.page_of", (resourcePage + 1), totalPages, resources.size());
         gg.drawString(this.font, pageStr, mx + 12, my + 49, 0xFFFFFFFF);
 
         // Right details panel
@@ -597,33 +596,33 @@ public class AdminScreen extends Screen {
 
         if (selectedResource != null) {
             gg.drawString(this.font, "§b" + selectedResource.displayName() + " §8(" + selectedResource.resourceId() + ")", rx, ry + 6, 0xFFFFFFFF);
-            gg.drawString(this.font, "§7Спот: §e" + String.format(Locale.US, "%.2f CBX", selectedResource.spotPrice())
-                    + "  §8Запас: §f" + (long) selectedResource.currentStock() + "/" + (long) selectedResource.targetReserve(), rx, ry + 18, 0xFFFFFFFF);
+            String spotVal = String.format(Locale.US, "%.2f CBX", selectedResource.spotPrice());
+            gg.drawString(this.font, "§7" + AmmoraLang.guiStr("admin.spot_label", spotVal, (long) selectedResource.currentStock(), (long) selectedResource.targetReserve()), rx, ry + 18, 0xFFFFFFFF);
 
-            gg.drawString(this.font, "§7Базовая P₀ (CBX):", rx, ry + 32, 0xFFFFFFFF);
-            gg.drawString(this.font, "§7Модификатор (+/- %):", rx, ry + 66, 0xFFFFFFFF);
-            gg.drawString(this.font, "§7Резерв склада (S):", rx, ry + 100, 0xFFFFFFFF);
+            gg.drawString(this.font, "§7" + AmmoraLang.guiStr("admin.base_price_label"), rx, ry + 32, 0xFFFFFFFF);
+            gg.drawString(this.font, "§7" + AmmoraLang.guiStr("admin.modifier_label"), rx, ry + 66, 0xFFFFFFFF);
+            gg.drawString(this.font, "§7" + AmmoraLang.guiStr("admin.reserve_label"), rx, ry + 100, 0xFFFFFFFF);
         } else {
-            gg.drawCenteredString(this.font, "§8Выберите ресурс слева", rx + 89, ry + 70, 0xFFFFFFFF);
-            gg.drawCenteredString(this.font, "§8для управления курсом", rx + 89, ry + 84, 0xFFFFFFFF);
+            gg.drawCenteredString(this.font, "§8" + AmmoraLang.guiStr("admin.select_resource_prompt1"), rx + 89, ry + 70, 0xFFFFFFFF);
+            gg.drawCenteredString(this.font, "§8" + AmmoraLang.guiStr("admin.select_resource_prompt2"), rx + 89, ry + 84, 0xFFFFFFFF);
         }
     }
 
     private void renderLogsTab(GuiGraphics gg, int mx, int my, int mw, int mh) {
         var filtered = getFilteredTransactions();
         int totalPages = Math.max(1, (filtered.size() + 6) / 7);
-        String pageStr = "§8Стр. " + (logPage + 1) + "/" + totalPages + " (Всего: " + filtered.size() + ")";
+        String pageStr = "§8" + AmmoraLang.guiStr("admin.logs_page_of", (logPage + 1), totalPages, filtered.size());
         gg.drawString(this.font, pageStr, mx + mw - this.font.width(pageStr) - 52, my + 49, 0xFFFFFFFF);
 
         // Table Header
         int tableY = my + 64;
         gg.fill(mx + 10, tableY, mx + mw - 10, tableY + 14, COLOR_PANEL_HEADER);
         gg.hLine(mx + 10, mx + mw - 10, tableY + 14, COLOR_BORDER_MUTED);
-        gg.drawString(this.font, "§8Дата", mx + 14, tableY + 3, 0xFFFFFFFF);
-        gg.drawString(this.font, "§8Тип", mx + 78, tableY + 3, 0xFFFFFFFF);
-        gg.drawString(this.font, "§8Участники", mx + 134, tableY + 3, 0xFFFFFFFF);
-        gg.drawString(this.font, "§8Товар / Кол-во", mx + 210, tableY + 3, 0xFFFFFFFF);
-        gg.drawString(this.font, "§8Итого", mx + mw - 52, tableY + 3, 0xFFFFFFFF);
+        gg.drawString(this.font, "§8" + AmmoraLang.guiStr("admin.col_date"), mx + 14, tableY + 3, 0xFFFFFFFF);
+        gg.drawString(this.font, "§8" + AmmoraLang.guiStr("admin.col_type"), mx + 78, tableY + 3, 0xFFFFFFFF);
+        gg.drawString(this.font, "§8" + AmmoraLang.guiStr("admin.col_parties"), mx + 134, tableY + 3, 0xFFFFFFFF);
+        gg.drawString(this.font, "§8" + AmmoraLang.guiStr("admin.col_item"), mx + 210, tableY + 3, 0xFFFFFFFF);
+        gg.drawString(this.font, "§8" + AmmoraLang.guiStr("admin.col_total"), mx + mw - 52, tableY + 3, 0xFFFFFFFF);
 
         int startIdx = logPage * 7;
         for (int i = 0; i < 7; i++) {
@@ -639,12 +638,12 @@ public class AdminScreen extends Screen {
                 gg.drawString(this.font, "§7" + dateStr, mx + 14, rowY + 5, 0xFFFFFFFF);
 
                 String typeTag = switch (tx.txType()) {
-                    case "LOCAL_BUY" -> "§aМагазин";
-                    case "REMOTE_BUY" -> "§bДоставка";
-                    case "BUY_REQUEST" -> "§6RFQ";
-                    case "BUY" -> "§eБиржа (П)";
-                    case "SELL" -> "§dБиржа (С)";
-                    default -> "§7Сделка";
+                    case "LOCAL_BUY" -> "§a" + AmmoraLang.guiStr("admin.tx_shop");
+                    case "REMOTE_BUY" -> "§b" + AmmoraLang.guiStr("admin.tx_delivery");
+                    case "BUY_REQUEST" -> "§6" + AmmoraLang.guiStr("admin.tx_rfq");
+                    case "BUY" -> "§e" + AmmoraLang.guiStr("admin.tx_exchange_buy");
+                    case "SELL" -> "§d" + AmmoraLang.guiStr("admin.tx_exchange_sell");
+                    default -> "§7" + AmmoraLang.guiStr("admin.tx_default");
                 };
                 gg.drawString(this.font, typeTag, mx + 78, rowY + 5, 0xFFFFFFFF);
 

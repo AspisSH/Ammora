@@ -28,7 +28,7 @@ public class AmmoraCommands {
             AdminPacketHandler.openAdminScreen(player);
             return 1;
         }
-        source.sendFailure(Component.literal("§cДанную команду может вызывать только игрок."));
+        source.sendFailure(Component.translatable("command.ammora.admin.player_only"));
         return 0;
     }
 }

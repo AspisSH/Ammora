@@ -23,88 +23,88 @@ public class MarketEventManager {
 
     private void registerTemplates() {
         templatePool.add(new MarketEvent(
-                "GOLD_RUSH",
+                "gold_rush",
                 "Gold Rush in Nether",
-                "event.exchange.gold_rush.title",
+                "event.ammora.gold_rush.title",
                 "Massive influx of Nether gold. Supply up, price down 25%.",
-                "event.exchange.gold_rush.desc",
+                "event.ammora.gold_rush.desc",
                 "minecraft:gold_ingot",
                 -0.25,
                 10,
                 2
         ));
         templatePool.add(new MarketEvent(
-                "DIAMOND_COLLAPSE",
+                "diamond_collapse",
                 "Collapse in Diamond Mines",
-                "event.exchange.diamond_collapse.title",
+                "event.ammora.diamond_collapse.title",
                 "A major cave-in caused an acute diamond deficit. Price surged +35%!",
-                "event.exchange.diamond_collapse.desc",
+                "event.ammora.diamond_collapse.desc",
                 "minecraft:diamond",
                 0.35,
                 10,
                 2
         ));
         templatePool.add(new MarketEvent(
-                "CONSTRUCTION_BOOM",
+                "construction_boom",
                 "Construction Boom",
-                "event.exchange.construction_boom.title",
+                "event.ammora.construction_boom.title",
                 "City infrastructure project buys up iron for bridges. Demand and price up +25%!",
-                "event.exchange.construction_boom.desc",
+                "event.ammora.construction_boom.desc",
                 "minecraft:iron_ingot",
                 0.25,
                 10,
                 2
         ));
         templatePool.add(new MarketEvent(
-                "NETHERITE_DISCOVERY",
+                "netherite_discovery",
                 "Ancient Expedition",
-                "event.exchange.netherite_discovery.title",
+                "event.ammora.netherite_discovery.title",
                 "Ancient ruins unearthed in Basalt Deltas. Large shipment of netherite arrived (-20%).",
-                "event.exchange.netherite_discovery.desc",
+                "event.ammora.netherite_discovery.desc",
                 "minecraft:netherite_ingot",
                 -0.20,
                 10,
                 2
         ));
         templatePool.add(new MarketEvent(
-                "REDSTONE_AUTOMATION",
+                "redstone_automation",
                 "Technological Breakthrough",
-                "event.exchange.redstone_automation.title",
+                "event.ammora.redstone_automation.title",
                 "Engineers automated machinery assembly. High demand for redstone (+30%)!",
-                "event.exchange.redstone_automation.desc",
+                "event.ammora.redstone_automation.desc",
                 "minecraft:redstone",
                 0.30,
                 10,
                 2
         ));
         templatePool.add(new MarketEvent(
-                "EMERALD_EMBARGO",
+                "emerald_embargo",
                 "Villager Trade Embargo",
-                "event.exchange.emerald_embargo.title",
+                "event.ammora.emerald_embargo.title",
                 "Villages ceased exporting emeralds. Exchange price jumped +40%!",
-                "event.exchange.emerald_embargo.desc",
+                "event.ammora.emerald_embargo.desc",
                 "minecraft:emerald",
                 0.40,
                 10,
                 2
         ));
         templatePool.add(new MarketEvent(
-                "LAPIS_ENCHANTMENT",
+                "lapis_enchantment",
                 "Enchantment Season",
-                "event.exchange.lapis_enchantment.title",
+                "event.ammora.lapis_enchantment.title",
                 "Guild mages are buying up lapis lazuli for rituals. Price rose +25%!",
-                "event.exchange.lapis_enchantment.desc",
+                "event.ammora.lapis_enchantment.desc",
                 "minecraft:lapis_lazuli",
                 0.25,
                 10,
                 2
         ));
         templatePool.add(new MarketEvent(
-                "COPPER_DEMAND",
+                "copper_demand",
                 "Copper Industrialization",
-                "event.exchange.copper_demand.title",
+                "event.ammora.copper_demand.title",
                 "Launch of massive factories spurred sharp demand for copper. Price rose +30%!",
-                "event.exchange.copper_demand.desc",
+                "event.ammora.copper_demand.desc",
                 "minecraft:copper_ingot",
                 0.30,
                 10,
@@ -165,7 +165,7 @@ public class MarketEventManager {
                 clearEventModifiers(marketManager);
                 activeEvent = null;
                 String msg = AmmoraLang.messageStr("event.expired", expiredTitle);
-                return msg.startsWith("message.ammora.") ? "§6[EXCHANGE] §aMarket stabilized: event §e«" + expiredTitle + "» §ahas ended." : msg;
+                return msg.startsWith("message.ammora.") ? "§6[AMMORA] §aMarket stabilized: event §e«" + expiredTitle + "» §ahas ended." : msg;
             }
             return null; // Event still active
         }
@@ -207,7 +207,7 @@ public class MarketEventManager {
             );
             setActiveEvent(newEvent, marketManager);
             String msg = AmmoraLang.messageStr("event.started", newEvent.getTitle(), newEvent.getDescription());
-            return msg.startsWith("message.ammora.") ? "§6[EXCHANGE] §eMARKET NEWS: §6«" + newEvent.getTitle() + "»! §f" + newEvent.getDescription() : msg;
+            return msg.startsWith("message.ammora.") ? "§6[AMMORA] §eMARKET NEWS: §6«" + newEvent.getTitle() + "»! §f" + newEvent.getDescription() : msg;
         }
 
         return null;

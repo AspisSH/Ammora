@@ -182,7 +182,7 @@ public class AmmoraMod {
     private static final MarketEventManager marketEventManager = new MarketEventManager();
     private static final java.util.Random RANDOM = new java.util.Random();
 
-    private static int dayTickCounter = 0;
+    private static long lastTrackedDay = -1L;
 
     public AmmoraMod(IEventBus modEventBus, ModContainer modContainer) {
         modContainer.registerConfig(ModConfig.Type.COMMON, AmmoraConfig.SPEC);
@@ -240,6 +240,9 @@ public class AmmoraMod {
                 PLAYER_SHOP_BE.get(),
                 (shop, side) -> shop.getInventory()
         );
+        if (ModList.get().isLoaded("computercraft")) {
+            com.ammora.mod.compat.cctweaked.CCCompat.registerCapabilities(event);
+        }
     }
 
     @SubscribeEvent
@@ -249,6 +252,7 @@ public class AmmoraMod {
 
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
+        lastTrackedDay = -1L;
         MinecraftServer server = event.getServer();
         File worldDir = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).toFile();
         File dbFile = new File(worldDir, "data" + File.separator + "ammora.db");
@@ -372,61 +376,64 @@ public class AmmoraMod {
 
     @SubscribeEvent
     public void onServerTick(ServerTickEvent.Post event) {
-        if (marketManager == null) return;
+        MinecraftServer server = event.getServer();
+        if (server == null || marketManager == null) return;
 
-        dayTickCounter++;
-        // Every in-game day (24000 ticks ~ 20 minutes)
-        if (dayTickCounter >= 24000) {
-            dayTickCounter = 0;
-            LOGGER.info("Running daily economic cycle (mean reversion, fluctuations, events)...");
+        var overworld = server.overworld();
+        if (overworld != null) {
+            long currentDay = overworld.getDayTime() / 24000L;
+            if (lastTrackedDay == -1L) {
+                lastTrackedDay = currentDay;
+            } else if (currentDay != lastTrackedDay) {
+                lastTrackedDay = currentDay;
+                LOGGER.info("Running daily economic cycle for day {} (mean reversion, fluctuations, events)...", currentDay);
 
-            // 1. Mean-reversion burning
-            for (var res : marketManager.getAllResources()) {
-                com.ammora.mod.core.MarketEngine.applyMeanReversion(res, AmmoraConfig.getSurplusBurnRate());
-            }
-
-            // 2. Daily price fluctuations (+-10%)
-            boolean fluctuationsEnabled = AmmoraConfig.ENABLE_DAILY_FLUCTUATIONS.get();
-            double maxFluc = AmmoraConfig.MAX_DAILY_FLUCTUATION.get();
-            for (var res : marketManager.getAllResources()) {
-                double oldSpotPrice = com.ammora.mod.core.MarketEngine.calculateSpotPrice(res.getCurrentStock(), res);
-                if (fluctuationsEnabled) {
-                    double delta = (RANDOM.nextDouble() * 2.0 - 1.0) * maxFluc;
-                    delta = Math.round(delta * 1000.0) / 1000.0;
-                    res.setDailyModifier(delta);
-                } else {
-                    res.setDailyModifier(0.0);
-                }
-                double newSpotPrice = com.ammora.mod.core.MarketEngine.calculateSpotPrice(res.getCurrentStock(), res);
-                try {
-                    marketManager.recordDailyTransitionCandles(res, oldSpotPrice, newSpotPrice);
-                } catch (Exception e) {
-                    LOGGER.error("Failed to record daily transition candles for " + res.getResourceId(), e);
-                }
-            }
-
-            // 3. Market Events lifecycle & check
-            boolean eventsEnabled = AmmoraConfig.ENABLE_MARKET_EVENTS.get();
-            double chance = AmmoraConfig.EVENT_CHANCE.get();
-            int duration = AmmoraConfig.EVENT_DURATION_DAYS.get();
-            String announcement = marketEventManager.onDayChanged(marketManager, eventsEnabled, chance, duration);
-
-            if (announcement != null && event.getServer() != null) {
-                event.getServer().getPlayerList().broadcastSystemMessage(Component.literal(announcement), false);
-            }
-
-            // 4. Save state to database
-            try {
-                marketDAO.saveActiveEvent(marketEventManager.getActiveEvent());
+                // 1. Mean-reversion burning
                 for (var res : marketManager.getAllResources()) {
-                    marketDAO.upsertMarket(res);
+                    com.ammora.mod.core.MarketEngine.applyMeanReversion(res, AmmoraConfig.getSurplusBurnRate());
                 }
-            } catch (Exception e) {
-                LOGGER.error("Failed to save daily market state", e);
-            }
 
-            // 5. Carry fee deductions & daily contract generation
-            if (marketManager != null) {
+                // 2. Daily price fluctuations (+-10%)
+                boolean fluctuationsEnabled = AmmoraConfig.ENABLE_DAILY_FLUCTUATIONS.get();
+                double maxFluc = AmmoraConfig.MAX_DAILY_FLUCTUATION.get();
+                for (var res : marketManager.getAllResources()) {
+                    double oldSpotPrice = com.ammora.mod.core.MarketEngine.calculateSpotPrice(res.getCurrentStock(), res);
+                    if (fluctuationsEnabled) {
+                        double delta = (RANDOM.nextDouble() * 2.0 - 1.0) * maxFluc;
+                        delta = Math.round(delta * 1000.0) / 1000.0;
+                        res.setDailyModifier(delta);
+                    } else {
+                        res.setDailyModifier(0.0);
+                    }
+                    double newSpotPrice = com.ammora.mod.core.MarketEngine.calculateSpotPrice(res.getCurrentStock(), res);
+                    try {
+                        marketManager.recordDailyTransitionCandles(res, oldSpotPrice, newSpotPrice);
+                    } catch (Exception e) {
+                        LOGGER.error("Failed to record daily transition candles for " + res.getResourceId(), e);
+                    }
+                }
+
+                // 3. Market Events lifecycle & check
+                boolean eventsEnabled = AmmoraConfig.ENABLE_MARKET_EVENTS.get();
+                double chance = AmmoraConfig.EVENT_CHANCE.get();
+                int duration = AmmoraConfig.EVENT_DURATION_DAYS.get();
+                String announcement = marketEventManager.onDayChanged(marketManager, eventsEnabled, chance, duration);
+
+                if (announcement != null) {
+                    server.getPlayerList().broadcastSystemMessage(Component.literal(announcement), false);
+                }
+
+                // 4. Save state to database
+                try {
+                    marketDAO.saveActiveEvent(marketEventManager.getActiveEvent());
+                    for (var res : marketManager.getAllResources()) {
+                        marketDAO.upsertMarket(res);
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Failed to save daily market state", e);
+                }
+
+                // 5. Carry fee deductions & daily contract generation
                 try {
                     marketManager.applyDailyCarryFee(AmmoraConfig.getDailyCarryFeeRate());
                     marketManager.generateDailyContracts();
@@ -437,7 +444,7 @@ public class AmmoraMod {
         }
 
         // Periodic processing every 20 ticks (1 second) for limit orders and contracts
-        if (event.getServer().getTickCount() % 20 == 0 && marketManager != null) {
+        if (server.getTickCount() % 20 == 0) {
             try {
                 marketManager.processPendingLimitOrders();
                 marketManager.processContractTicks(event.getServer().overworld().getGameTime());
@@ -518,6 +525,13 @@ public class AmmoraMod {
     public void onPlayerLoggedIn(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             deliverPendingClaims(player);
+        }
+    }
+
+    @SubscribeEvent
+    public void onPlayerLoggedOut(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            com.ammora.mod.core.TradeSessionManager.getInstance().onPlayerDisconnect(player);
         }
     }
 

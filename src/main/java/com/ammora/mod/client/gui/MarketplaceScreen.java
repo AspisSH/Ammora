@@ -93,7 +93,7 @@ public class MarketplaceScreen extends Screen {
     private static final SimpleDateFormat TIME_FMT = new SimpleDateFormat("HH:mm:ss");
 
     public MarketplaceScreen(MarketplaceDataPayload initialData) {
-        super(Component.literal("Marketplace"));
+        super(Component.translatable("gui.ammora.market.title"));
         this.data = initialData;
         checkNotification(initialData);
         initDefaultRfqItem();

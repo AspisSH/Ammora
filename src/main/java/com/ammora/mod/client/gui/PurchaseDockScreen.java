@@ -50,7 +50,7 @@ public class PurchaseDockScreen extends Screen {
     private static final int COLOR_TEXT_MUTED = 0xFF9E9284;
 
     public PurchaseDockScreen(PurchaseDockDataPayload initialData) {
-        super(Component.literal("Purchase Dock"));
+        super(Component.translatable("gui.ammora.dock.title"));
         this.data = initialData;
         if (initialData != null) {
             this.selectedResourceId = initialData.targetResourceId();

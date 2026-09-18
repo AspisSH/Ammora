@@ -57,8 +57,8 @@ public class AmmoraPonderPlugin implements PonderPlugin {
         ResourceLocation purchaseDockId = AmmoraMod.PURCHASE_DOCK_ITEM.get().asItem().builtInRegistryHolder().key().location();
 
         helper.registerTag(EXCHANGE_TAG)
-                .title("ponder.tag.exchange")
-                .description("ponder.tag.exchange.description")
+                .title("ponder.tag.ammora")
+                .description("ponder.tag.ammora.description")
                 .item(AmmoraMod.EXCHANGE_TERMINAL_ITEM.get())
                 .addToIndex()
                 .register();

@@ -68,7 +68,7 @@ public class ColdWalletScreen extends Screen {
     }
 
     public ColdWalletScreen(ColdWalletDataPayload initialData) {
-        super(Component.literal("Cold Wallet"));
+        super(Component.translatable("gui.ammora.wallet.title"));
         this.data = initialData;
         if (this.incomingInviteUuid == null && ClientPacketHandler.hasActiveTradeInvite()) {
             this.incomingInviteUuid = ClientPacketHandler.getPendingTradeInviteUuid();
