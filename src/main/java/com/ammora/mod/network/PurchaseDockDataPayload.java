@@ -26,8 +26,20 @@ public record PurchaseDockDataPayload(
         String ownerName,
         List<DockResourceItem> availableResources,
         String statusMessage,
-        boolean isError
+        boolean isError,
+        String companyName,
+        boolean isCompanyLinked
 ) implements CustomPacketPayload {
+
+    public PurchaseDockDataPayload(
+            BlockPos pos, String targetResourceId, String targetResourceDisplayName,
+            double spotPrice, int batchSize, double maxBuyPrice, int repLevel, int repPoints,
+            double userBalanceCbx, String ownerName, List<DockResourceItem> availableResources,
+            String statusMessage, boolean isError
+    ) {
+        this(pos, targetResourceId, targetResourceDisplayName, spotPrice, batchSize, maxBuyPrice,
+                repLevel, repPoints, userBalanceCbx, ownerName, availableResources, statusMessage, isError, "", false);
+    }
 
     public static final Type<PurchaseDockDataPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(AmmoraMod.MODID, "purchase_dock_data"));
@@ -57,6 +69,8 @@ public record PurchaseDockDataPayload(
                 buf.readDouble(),
                 buf.readUtf(),
                 readResources(buf),
+                buf.readUtf(),
+                buf.readBoolean(),
                 buf.readUtf(),
                 buf.readBoolean()
         );
@@ -92,6 +106,8 @@ public record PurchaseDockDataPayload(
 
         buf.writeUtf(statusMessage != null ? statusMessage : "");
         buf.writeBoolean(isError);
+        buf.writeUtf(companyName != null ? companyName : "");
+        buf.writeBoolean(isCompanyLinked);
     }
 
     @Override

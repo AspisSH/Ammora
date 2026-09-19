@@ -24,6 +24,7 @@ public record MarketplaceDataPayload(
         List<MarketTxItem> transactions,
         List<DeliveryBufferItem> deliveries,
         List<LiveAuctionItem> auctions,
+        CompanyData company,
         String statusMessage,
         boolean isError
 ) implements CustomPacketPayload {
@@ -37,10 +38,26 @@ public record MarketplaceDataPayload(
             List<CommunityQuestItem> quests,
             List<MarketTxItem> transactions,
             List<DeliveryBufferItem> deliveries,
+            List<LiveAuctionItem> auctions,
             String statusMessage,
             boolean isError
     ) {
-        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, List.of(), statusMessage, isError);
+        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, auctions, CompanyData.none(), statusMessage, isError);
+    }
+
+    public MarketplaceDataPayload(
+            double balanceCbx,
+            int repLevel,
+            List<MarketplaceSlotItem> catalogSlots,
+            List<MarketplaceShopItem> shops,
+            List<BuyRequestItem> buyRequests,
+            List<CommunityQuestItem> quests,
+            List<MarketTxItem> transactions,
+            List<DeliveryBufferItem> deliveries,
+            String statusMessage,
+            boolean isError
+    ) {
+        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, List.of(), CompanyData.none(), statusMessage, isError);
     }
 
     public MarketplaceDataPayload(
@@ -54,7 +71,7 @@ public record MarketplaceDataPayload(
             String statusMessage,
             boolean isError
     ) {
-        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, List.of(), List.of(), statusMessage, isError);
+        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, List.of(), List.of(), CompanyData.none(), statusMessage, isError);
     }
 
     @Deprecated
@@ -186,6 +203,65 @@ public record MarketplaceDataPayload(
         }
     }
 
+    public record CompanyMemberItem(
+            UUID playerUuid,
+            String playerName,
+            String role,
+            double dailyLimitCbx,
+            double spentTodayCbx,
+            long joinedAt
+    ) {}
+
+    public record CompanyLedgerItem(
+            String entryId,
+            UUID playerUuid,
+            String playerName,
+            String actionType,
+            double amountCbx,
+            String description,
+            long timestamp
+    ) {}
+
+    public record CompanyData(
+            boolean hasCompany,
+            String companyId,
+            String companyName,
+            UUID ownerUuid,
+            String ownerName,
+            double balanceCbx,
+            String myRole,
+            double myDailyLimit,
+            double mySpentToday,
+            double registrationFee,
+            List<CompanyMemberItem> members,
+            List<CompanyLedgerItem> ledger
+    ) {
+        public static CompanyData none() {
+            return none(500.0);
+        }
+
+        public static CompanyData none(double fee) {
+            return new CompanyData(false, "", "", new UUID(0L, 0L), "", 0.0, "", 0.0, 0.0, fee, List.of(), List.of());
+        }
+
+        public boolean isOwner() {
+            return "OWNER".equalsIgnoreCase(myRole);
+        }
+
+        public boolean isManager() {
+            return "MANAGER".equalsIgnoreCase(myRole);
+        }
+
+        public boolean isMember() {
+            return "MEMBER".equalsIgnoreCase(myRole);
+        }
+
+        public double remainingLimit() {
+            if (isOwner()) return Double.MAX_VALUE;
+            return Math.max(0.0, myDailyLimit - mySpentToday);
+        }
+    }
+
     public MarketplaceDataPayload(FriendlyByteBuf buf) {
         this(
                 buf.readDouble(),
@@ -197,6 +273,7 @@ public record MarketplaceDataPayload(
                 readTx(buf),
                 readDeliveries(buf),
                 readAuctions(buf),
+                readCompanyData(buf),
                 buf.readUtf(),
                 buf.readBoolean()
         );
@@ -424,6 +501,42 @@ public record MarketplaceDataPayload(
             }
         }
 
+        // Write Company Data
+        CompanyData cd = company != null ? company : CompanyData.none();
+        buf.writeBoolean(cd.hasCompany());
+        buf.writeDouble(cd.registrationFee());
+        if (cd.hasCompany()) {
+            buf.writeUtf(cd.companyId());
+            buf.writeUtf(cd.companyName());
+            buf.writeUUID(cd.ownerUuid());
+            buf.writeUtf(cd.ownerName());
+            buf.writeDouble(cd.balanceCbx());
+            buf.writeUtf(cd.myRole());
+            buf.writeDouble(cd.myDailyLimit());
+            buf.writeDouble(cd.mySpentToday());
+
+            buf.writeVarInt(cd.members().size());
+            for (CompanyMemberItem m : cd.members()) {
+                buf.writeUUID(m.playerUuid());
+                buf.writeUtf(m.playerName());
+                buf.writeUtf(m.role());
+                buf.writeDouble(m.dailyLimitCbx());
+                buf.writeDouble(m.spentTodayCbx());
+                buf.writeLong(m.joinedAt());
+            }
+
+            buf.writeVarInt(cd.ledger().size());
+            for (CompanyLedgerItem l : cd.ledger()) {
+                buf.writeUtf(l.entryId());
+                buf.writeUUID(l.playerUuid());
+                buf.writeUtf(l.playerName());
+                buf.writeUtf(l.actionType());
+                buf.writeDouble(l.amountCbx());
+                buf.writeUtf(l.description());
+                buf.writeLong(l.timestamp());
+            }
+        }
+
         buf.writeUtf(statusMessage != null ? statusMessage : "");
         buf.writeBoolean(isError);
     }
@@ -474,6 +587,51 @@ public record MarketplaceDataPayload(
             ));
         }
         return list;
+    }
+
+    private static CompanyData readCompanyData(FriendlyByteBuf buf) {
+        boolean hasCompany = buf.readBoolean();
+        double regFee = buf.readDouble();
+        if (!hasCompany) {
+            return CompanyData.none(regFee);
+        }
+        String compId = buf.readUtf();
+        String compName = buf.readUtf();
+        UUID ownerUuid = buf.readUUID();
+        String ownerName = buf.readUtf();
+        double balance = buf.readDouble();
+        String myRole = buf.readUtf();
+        double myLimit = buf.readDouble();
+        double mySpent = buf.readDouble();
+
+        int memberCount = buf.readVarInt();
+        List<CompanyMemberItem> members = new ArrayList<>(memberCount);
+        for (int i = 0; i < memberCount; i++) {
+            members.add(new CompanyMemberItem(
+                    buf.readUUID(),
+                    buf.readUtf(),
+                    buf.readUtf(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readLong()
+            ));
+        }
+
+        int ledgerCount = buf.readVarInt();
+        List<CompanyLedgerItem> ledger = new ArrayList<>(ledgerCount);
+        for (int i = 0; i < ledgerCount; i++) {
+            ledger.add(new CompanyLedgerItem(
+                    buf.readUtf(),
+                    buf.readUUID(),
+                    buf.readUtf(),
+                    buf.readUtf(),
+                    buf.readDouble(),
+                    buf.readUtf(),
+                    buf.readLong()
+            ));
+        }
+
+        return new CompanyData(true, compId, compName, ownerUuid, ownerName, balance, myRole, myLimit, mySpent, regFee, members, ledger);
     }
 
     @Override

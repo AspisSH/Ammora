@@ -29,6 +29,15 @@ public class TradeDockEntity extends BlockEntity {
     private int cooldown = 0;
     private int transferSpeedTicks = 8; // Default hopper speed (8 ticks)
 
+    // Corporate link
+    private UUID companyId = null;
+    private String companyName = "";
+
+    public UUID getCompanyId() { return companyId; }
+    public void setCompanyId(UUID companyId) { this.companyId = companyId; setChanged(); }
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName != null ? companyName : ""; setChanged(); }
+
     private final ItemStackHandler inventory = new ItemStackHandler(9) {
         @Override
         protected void onContentsChanged(int slot) {
@@ -115,7 +124,7 @@ public class TradeDockEntity extends BlockEntity {
                     int toSell = stack.getCount();
                     try {
                         MarketManager.MarketTransactionResult result = AmmoraMod.getMarketManager()
-                                .executeSell(ownerUuid, ownerName, resId, toSell);
+                                .executeSell(ownerUuid, ownerName, companyId, resId, toSell);
 
                         if (result.success()) {
                             inventory.extractItem(i, toSell, false);
@@ -140,6 +149,10 @@ public class TradeDockEntity extends BlockEntity {
         tag.putString("OwnerName", ownerName);
         tag.putDouble("StopLossPrice", stopLossPrice);
         tag.putInt("TransferSpeedTicks", transferSpeedTicks);
+        if (companyId != null) {
+            tag.putUUID("CompanyUUID", companyId);
+        }
+        tag.putString("CompanyName", companyName != null ? companyName : "");
     }
 
     @Override
@@ -159,6 +172,14 @@ public class TradeDockEntity extends BlockEntity {
         }
         if (tag.contains("TransferSpeedTicks")) {
             this.transferSpeedTicks = tag.getInt("TransferSpeedTicks");
+        }
+        if (tag.hasUUID("CompanyUUID")) {
+            this.companyId = tag.getUUID("CompanyUUID");
+        } else {
+            this.companyId = null;
+        }
+        if (tag.contains("CompanyName")) {
+            this.companyName = tag.getString("CompanyName");
         }
     }
 }

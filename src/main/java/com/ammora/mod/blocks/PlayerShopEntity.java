@@ -53,6 +53,32 @@ public class PlayerShopEntity extends BlockEntity {
     private int slotCapacity = 64;
     private boolean networkUnlocked = false;
 
+    // Corporate Account link
+    private UUID companyId = null;
+    private String companyName = "";
+
+    public UUID getCompanyId() { return companyId; }
+    public void setCompanyId(UUID companyId) {
+        this.companyId = companyId;
+        if (companyId == null) {
+            this.companyName = "";
+        }
+        setChanged();
+        if (level != null && !level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+        syncToDatabase();
+    }
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) {
+        this.companyName = companyName != null ? companyName : "";
+        setChanged();
+        if (level != null && !level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+        syncToDatabase();
+    }
+
     private final ItemStackHandler inventory = new ItemStackHandler(10) {
         @Override
         protected void onContentsChanged(int slot) {
@@ -186,6 +212,22 @@ public class PlayerShopEntity extends BlockEntity {
     public void claimRevenue(ServerPlayer player) {
         if (ownerUuid != null && ownerUuid.equals(player.getUUID()) && accumulatedRevenue > 0.001) {
             try {
+                if (companyId != null && AmmoraMod.getMarketDAO() != null) {
+                    com.ammora.mod.db.CompanyRecord comp = AmmoraMod.getMarketDAO().getCompany(companyId.toString());
+                    if (comp != null) {
+                        comp.deposit(accumulatedRevenue);
+                        AmmoraMod.getMarketDAO().updateCompanyBalance(comp.getCompanyId(), comp.getBalanceCbx());
+                        AmmoraMod.getMarketDAO().recordCompanyLedger(comp.getCompanyId(), player.getUUID(), player.getName().getString(),
+                                "SHOP_REVENUE", accumulatedRevenue, "Revenue from " + shopName);
+                        player.sendSystemMessage(Component.translatable("message.ammora.shop.revenue_credited_company",
+                                String.format(Locale.US, "%.2f", accumulatedRevenue), comp.getCompanyName()));
+                        this.accumulatedRevenue = 0.0;
+                        setChanged();
+                        syncToDatabase();
+                        return;
+                    }
+                }
+
                 PlayerAccount acc = AmmoraMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
                 if (acc != null) {
                     acc.deposit(accumulatedRevenue);
@@ -256,7 +298,8 @@ public class PlayerShopEntity extends BlockEntity {
 
         PacketDistributor.sendToPlayer(player, new PlayerShopDataPayload(
                 shopId, shopName, ownerUuid != null ? ownerUuid : player.getUUID(), ownerName, isOwner, broadcast,
-                accumulatedRevenue, totalSales, balance, slotItems, maxSlots, slotCapacity, networkUnlocked, "", false
+                accumulatedRevenue, totalSales, balance, slotItems, maxSlots, slotCapacity, networkUnlocked, "", false,
+                companyName != null ? companyName : ""
         ));
     }
 
@@ -268,7 +311,8 @@ public class PlayerShopEntity extends BlockEntity {
                     level.dimension().location().toString(),
                     worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(),
                     broadcast, totalSales, accumulatedRevenue, System.currentTimeMillis(),
-                    maxSlots, slotCapacity, networkUnlocked
+                    maxSlots, slotCapacity, networkUnlocked,
+                    companyId != null ? companyId.toString() : null
             );
             AmmoraMod.getMarketDAO().saveOrUpdatePlayerShop(shopRecord);
 
@@ -416,6 +460,13 @@ public class PlayerShopEntity extends BlockEntity {
         tag.putInt("MaxSlots", maxSlots);
         tag.putInt("SlotCapacity", slotCapacity);
         tag.putBoolean("NetworkUnlocked", networkUnlocked);
+        if (companyId != null) {
+            tag.putUUID("CompanyUUID", companyId);
+            tag.putString("CompanyName", companyName != null ? companyName : "");
+        } else {
+            tag.remove("CompanyUUID");
+            tag.remove("CompanyName");
+        }
 
         for (int i = 0; i < 10; i++) {
             tag.putDouble("Price_" + i, prices[i]);
@@ -437,6 +488,13 @@ public class PlayerShopEntity extends BlockEntity {
         if (tag.contains("MaxSlots")) maxSlots = Math.max(5, Math.min(10, tag.getInt("MaxSlots")));
         if (tag.contains("SlotCapacity")) slotCapacity = Math.max(64, tag.getInt("SlotCapacity"));
         if (tag.contains("NetworkUnlocked")) networkUnlocked = tag.getBoolean("NetworkUnlocked");
+        if (tag.hasUUID("CompanyUUID")) {
+            companyId = tag.getUUID("CompanyUUID");
+            companyName = tag.contains("CompanyName") ? tag.getString("CompanyName") : "";
+        } else {
+            companyId = null;
+            companyName = "";
+        }
 
         for (int i = 0; i < 10; i++) {
             if (tag.contains("Price_" + i)) {

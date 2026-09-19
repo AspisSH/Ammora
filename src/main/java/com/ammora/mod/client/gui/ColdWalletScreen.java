@@ -47,6 +47,9 @@ public class ColdWalletScreen extends Screen {
     private UUID incomingInviteUuid;
     private String incomingInviteName = "";
 
+    // Account mode (Personal vs Corporate)
+    private static boolean useCompanyAccount = false;
+
     // Date formatter for ledger
     private static final SimpleDateFormat TIME_FMT = new SimpleDateFormat("HH:mm:ss");
 
@@ -147,6 +150,25 @@ public class ColdWalletScreen extends Screen {
                 this.incomingInviteUuid = null;
                 rebuildWidgets();
             }).bounds(invX + invW - 22, my + 26, 22, 16).build());
+        }
+
+        // Corporate Account toggle in top header if player has company
+        if (data.hasCompany()) {
+            String compShort = data.companyName();
+            if (this.font.width(compShort) > 46) {
+                compShort = this.font.plainSubstrByWidth(compShort, 40) + "..";
+            }
+            String toggleText = useCompanyAccount ? "§6🏢 " + compShort : "§b👤 " + AmmoraLang.guiStr("account.personal");
+            int toggleW = Math.max(54, Math.min(76, this.font.width(toggleText) + 10));
+            int toggleX = mx + mw - toggleW - 8;
+            this.addRenderableWidget(Button.builder(Component.literal(toggleText), b -> {
+                useCompanyAccount = !useCompanyAccount;
+                rebuildWidgets();
+            }).bounds(toggleX, my + 4, toggleW, 16)
+            .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    useCompanyAccount ? AmmoraLang.guiStr("account.switch_to_personal") : AmmoraLang.guiStr("account.switch_to_company")
+            )))
+            .build());
         }
 
         if (activeTab == 0) {
@@ -258,7 +280,8 @@ public class ColdWalletScreen extends Screen {
         PacketDistributor.sendToServer(new ServerboundP2PTransferPayload(
                 uuidToSend,
                 selectedRecipientName.trim(),
-                transferAmount
+                transferAmount,
+                useCompanyAccount
         ));
         if (this.minecraft != null) {
             this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.2F));
@@ -293,13 +316,21 @@ public class ColdWalletScreen extends Screen {
         g.fill(mx + 1, my + 24, mx + mw - 1, my + 25, COLOR_BORDER_MUTED);
 
         g.drawString(this.font, "§6§l" + com.ammora.mod.util.AmmoraLang.guiStr("wallet.title"), mx + 8, my + 5, 0xFFFFFFFF);
-        String sub = "§7" + com.ammora.mod.util.AmmoraLang.guiStr("wallet.balance", MarketEngine.round2(data.balanceCbx())) + " §8| §7REP: §e" + data.repPoints();
+        String sub;
+        if (data.hasCompany() && useCompanyAccount) {
+            String roleBadge = "OWNER".equalsIgnoreCase(data.companyRole()) ? "👑" : ("MANAGER".equalsIgnoreCase(data.companyRole()) ? "👔" : "👤");
+            sub = "§6🏢 " + data.companyName() + " §8| §e" + MarketEngine.round2(data.companyBalance()) + " CBX " + roleBadge;
+        } else {
+            sub = "§7" + com.ammora.mod.util.AmmoraLang.guiStr("wallet.balance", MarketEngine.round2(data.balanceCbx())) + " §8| §7REP: §e" + data.repPoints();
+        }
         g.drawString(this.font, sub, mx + 8, my + 15, 0xFFFFFFFF);
 
-        // Rank badge
-        String rankTitle = getRankTitle(data.repLevel());
-        String rankBadge = AmmoraLang.guiStr("wallet.rank_lvl", rankTitle, data.repLevel());
-        g.drawString(this.font, rankBadge, mx + mw - 8 - this.font.width(rankBadge), my + 5, 0xFFFFFFFF);
+        // Rank badge (only if no corporate toggle overlaying)
+        if (!data.hasCompany()) {
+            String rankTitle = getRankTitle(data.repLevel());
+            String rankBadge = AmmoraLang.guiStr("wallet.rank_lvl", rankTitle, data.repLevel());
+            g.drawString(this.font, rankBadge, mx + mw - 8 - this.font.width(rankBadge), my + 5, 0xFFFFFFFF);
+        }
 
         if (activeTab == 0) {
             renderP2PTab(g, mx, my, mw, mh);

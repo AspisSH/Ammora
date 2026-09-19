@@ -1,5 +1,6 @@
 package com.ammora.mod.core;
 
+import com.ammora.mod.db.CompanyRecord;
 import com.ammora.mod.db.MarketDAO;
 import com.ammora.mod.db.PlayerAccount;
 
@@ -355,6 +356,93 @@ dao.recordTradePrice(resourceId, "1d", spotPrice, amount, 30000L);
 
 return new MarketTransactionResult(true, totalPayout >= 0 ? "Sale successful" : "Disposal fee charged", totalPayout);
 }
+
+    public synchronized MarketTransactionResult executeAutomatedPurchase(UUID playerUuid, String playerName, UUID companyId, String resourceId, int amount, double maxBuyPrice) throws SQLException {
+        if (companyId == null) {
+            return executeAutomatedPurchase(playerUuid, playerName, resourceId, amount, maxBuyPrice);
+        }
+        if (amount <= 0) {
+            return new MarketTransactionResult(false, "Amount must be positive", 0);
+        }
+        MarketResource res = markets.get(resourceId);
+        if (res == null) {
+            return new MarketTransactionResult(false, "Resource not found", 0);
+        }
+        if (res.getCurrentStock() < amount) {
+            return new MarketTransactionResult(false, "Insufficient exchange reserves", 0);
+        }
+
+        double unitBuyPrice = MarketEngine.calculateBuyPrice(res.getCurrentStock(), res);
+        if (unitBuyPrice > maxBuyPrice) {
+            return new MarketTransactionResult(false, "Price " + unitBuyPrice + " exceeds max buy limit " + maxBuyPrice, 0);
+        }
+
+        CompanyRecord comp = dao.getCompany(companyId.toString());
+        if (comp == null) {
+            return new MarketTransactionResult(false, "Company not found", 0);
+        }
+
+        double totalCost = MarketEngine.calculateTotalBuyCost(amount, res);
+        if (!comp.withdraw(totalCost)) {
+            return new MarketTransactionResult(false, "Insufficient corporate CBX balance (Required: " + totalCost + ")", 0);
+        }
+
+        dao.updateCompanyBalance(comp.getCompanyId(), comp.getBalanceCbx());
+        dao.recordCompanyLedger(comp.getCompanyId(), playerUuid, playerName, "DOCK_EXPENSE", totalCost, "Automated dock purchase: " + amount + "x " + res.getDisplayName());
+
+        // Adjust stock
+        res.setCurrentStock(res.getCurrentStock() - amount);
+        dao.upsertMarket(res);
+
+        double spotPrice = MarketEngine.calculateSpotPrice(res.getCurrentStock(), res);
+        dao.recordOrder(playerUuid, resourceId, "BUY_AUTO", amount, spotPrice, totalCost * res.getFeeRate(), 0.0);
+        dao.recordTradePrice(resourceId, "1d", spotPrice, amount, 30000L);
+
+        return new MarketTransactionResult(true, "Automated purchase successful (Corporate)", totalCost);
+    }
+
+    public synchronized MarketTransactionResult executeSell(UUID playerUuid, String playerName, UUID companyId, String resourceId, int amount) throws SQLException {
+        if (companyId == null) {
+            return executeSell(playerUuid, playerName, resourceId, amount);
+        }
+        if (amount <= 0) {
+            return new MarketTransactionResult(false, "Amount must be positive", 0);
+        }
+        MarketResource res = markets.get(resourceId);
+        if (res == null) {
+            return new MarketTransactionResult(false, "Resource not found", 0);
+        }
+
+        CompanyRecord comp = dao.getCompany(companyId.toString());
+        if (comp == null) {
+            return new MarketTransactionResult(false, "Company not found", 0);
+        }
+
+        double totalPayout = MarketEngine.calculateTotalSellPayout(amount, res);
+        if (totalPayout < 0) {
+            double feeToPay = Math.abs(totalPayout);
+            if (!comp.withdraw(feeToPay)) {
+                return new MarketTransactionResult(false, "Negative price! Insufficient corporate CBX to pay disposal fee: " + feeToPay, totalPayout);
+            }
+            dao.updateCompanyBalance(comp.getCompanyId(), comp.getBalanceCbx());
+            dao.recordCompanyLedger(comp.getCompanyId(), playerUuid, playerName, "DOCK_EXPENSE", feeToPay, "Disposal fee for " + amount + "x " + res.getDisplayName());
+        } else {
+            comp.deposit(totalPayout);
+            dao.updateCompanyBalance(comp.getCompanyId(), comp.getBalanceCbx());
+            dao.recordCompanyLedger(comp.getCompanyId(), playerUuid, playerName, "DOCK_REVENUE", totalPayout, "Trade dock automated sale: " + amount + "x " + res.getDisplayName());
+        }
+
+        // Adjust stock
+        res.setCurrentStock(res.getCurrentStock() + amount);
+        dao.upsertMarket(res);
+
+        double spotPrice = MarketEngine.calculateSpotPrice(res.getCurrentStock(), res);
+        double disposal = MarketEngine.calculateDisposalFee(res.getCurrentStock(), res);
+        dao.recordOrder(playerUuid, resourceId, "SELL", amount, spotPrice, res.getFeeRate(), disposal);
+        dao.recordTradePrice(resourceId, "1d", spotPrice, amount, 30000L);
+
+        return new MarketTransactionResult(true, totalPayout >= 0 ? "Corporate sale successful" : "Disposal fee charged", totalPayout);
+    }
 
 
 // --- OMS DERIVATIVE METHODS ---

@@ -18,8 +18,13 @@ public record ServerboundAuctionActionPayload(
         double minBidStep,
         double buyoutPrice,
         int durationMinutes,
-        double bidAmount
+        double bidAmount,
+        boolean fromCompanyAccount
 ) implements CustomPacketPayload {
+
+    public ServerboundAuctionActionPayload(String action, String auctionId, int slotIndex, double startPrice, double minBidStep, double buyoutPrice, int durationMinutes, double bidAmount) {
+        this(action, auctionId, slotIndex, startPrice, minBidStep, buyoutPrice, durationMinutes, bidAmount, false);
+    }
 
     public static final Type<ServerboundAuctionActionPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(AmmoraMod.MODID, "auction_action"));
@@ -38,7 +43,8 @@ public record ServerboundAuctionActionPayload(
                 buf.readDouble(),
                 buf.readDouble(),
                 buf.readVarInt(),
-                buf.readDouble()
+                buf.readDouble(),
+                buf.readBoolean()
         );
     }
 
@@ -51,6 +57,7 @@ public record ServerboundAuctionActionPayload(
         buf.writeDouble(buyoutPrice);
         buf.writeVarInt(durationMinutes);
         buf.writeDouble(bidAmount);
+        buf.writeBoolean(fromCompanyAccount);
     }
 
     @Override

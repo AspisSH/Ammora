@@ -3,6 +3,7 @@ package com.ammora.mod.blocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
@@ -56,6 +57,40 @@ public class TradeDockBlock extends Block implements EntityBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new TradeDockEntity(pos, state);
+    }
+
+    @Override
+    protected net.minecraft.world.InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, net.minecraft.world.phys.BlockHitResult hitResult) {
+        if (!level.isClientSide) {
+            BlockEntity be = level.getBlockEntity(pos);
+            if (be instanceof TradeDockEntity dock) {
+                if (dock.getOwnerUuid() == null) {
+                    dock.setOwner(player.getUUID(), player.getName().getString());
+                }
+
+                if (com.ammora.mod.AmmoraMod.getMarketDAO() != null) {
+                    try {
+                        var comp = com.ammora.mod.AmmoraMod.getMarketDAO().getPlayerCompany(player.getUUID());
+                        if (comp != null) {
+                            if (dock.getCompanyId() != null) {
+                                dock.setCompanyId(null);
+                                dock.setCompanyName("");
+                                player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("message.ammora.dock.unlinked_from_company"));
+                            } else {
+                                dock.setCompanyId(java.util.UUID.fromString(comp.getCompanyId()));
+                                dock.setCompanyName(comp.getCompanyName());
+                                player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("message.ammora.dock.linked_to_company", comp.getCompanyName()));
+                            }
+                            return net.minecraft.world.InteractionResult.sidedSuccess(level.isClientSide);
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                String accInfo = dock.getCompanyId() != null ? dock.getCompanyName() : dock.getOwnerName();
+                player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("message.ammora.dock.owner_info", accInfo));
+            }
+        }
+        return net.minecraft.world.InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     @Nullable

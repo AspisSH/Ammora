@@ -25,9 +25,26 @@ public record ClientboundAdminDataPayload(
         int activeEventRemainingDays,
         double activeEventMultiplier,
         List<AdminResourceItem> resources,
+        double companyRegistrationFee,
         String statusMessage,
         boolean isError
 ) implements CustomPacketPayload {
+
+    public ClientboundAdminDataPayload(
+            List<AdminAccountItem> accounts,
+            List<AdminTxItem> transactions,
+            List<AdminEventTemplateItem> eventTemplates,
+            String activeEventId,
+            String activeEventTitle,
+            String activeEventDesc,
+            int activeEventRemainingDays,
+            double activeEventMultiplier,
+            List<AdminResourceItem> resources,
+            String statusMessage,
+            boolean isError
+    ) {
+        this(accounts, transactions, eventTemplates, activeEventId, activeEventTitle, activeEventDesc, activeEventRemainingDays, activeEventMultiplier, resources, 500.0, statusMessage, isError);
+    }
 
     public static final Type<ClientboundAdminDataPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(AmmoraMod.MODID, "admin_data"));
@@ -185,6 +202,7 @@ public record ClientboundAdminDataPayload(
                 buf.readInt(),
                 buf.readDouble(),
                 readResources(buf),
+                buf.readDouble(),
                 buf.readUtf(),
                 buf.readBoolean()
         );
@@ -208,6 +226,8 @@ public record ClientboundAdminDataPayload(
 
         buf.writeInt(resources.size());
         for (AdminResourceItem r : resources) r.write(buf);
+
+        buf.writeDouble(companyRegistrationFee);
 
         buf.writeUtf(statusMessage != null ? statusMessage : "");
         buf.writeBoolean(isError);

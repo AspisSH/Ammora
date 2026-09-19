@@ -274,6 +274,22 @@ public class AdminScreen extends Screen {
                 ));
             }).bounds(rx + 137, ry + 80, 43, 16).build());
         }
+
+        // Global Financial Setting: Company Registration Fee (CBX)
+        int rx = mx + 184;
+        int feeY = my + mh - 44;
+        EditBox companyFeeInput = new EditBox(this.font, rx, feeY + 12, 88, 16, AmmoraLang.gui("admin.company_fee"));
+        companyFeeInput.setValue(String.format(Locale.US, "%.2f", data.companyRegistrationFee()));
+        this.addRenderableWidget(companyFeeInput);
+
+        this.addRenderableWidget(Button.builder(AmmoraLang.gui("admin.btn_set_fee"), b -> {
+            double val = parseDouble(companyFeeInput.getValue());
+            if (val >= 0) {
+                PacketDistributor.sendToServer(new ServerboundAdminActionPayload(
+                        "SET_COMPANY_FEE", "", val, ""
+                ));
+            }
+        }).bounds(rx + 94, feeY + 12, 84, 16).build());
     }
 
     private List<ClientboundAdminDataPayload.AdminAccountItem> getFilteredAccounts() {
@@ -541,8 +557,14 @@ public class AdminScreen extends Screen {
             gg.drawString(this.font, "§7" + AmmoraLang.guiStr("admin.rep_label") + ": §6Lvl " + selectedAccount.repLevel() + " §8(" + selectedAccount.repPoints() + " pts)", rx, ry + 14, 0xFFFFFFFF);
             gg.drawString(this.font, "§8UUID: " + truncate(selectedAccount.playerUuid().toString(), 22), rx, ry + 26, 0xFFFFFFFF);
         } else {
-            gg.drawCenteredString(this.font, "§8" + AmmoraLang.guiStr("admin.select_player_prompt"), rx + 95, ry + 50, 0xFFFFFFFF);
+            gg.drawCenteredString(this.font, "§8" + AmmoraLang.guiStr("admin.select_player_prompt"), rx + 95, ry + 40, 0xFFFFFFFF);
         }
+
+        // Global Setting: Company Registration Fee
+        int feeRx = mx + 184;
+        int feeY = my + mh - 44;
+        gg.hLine(feeRx - 2, mx + mw - 14, feeY - 4, COLOR_BORDER_MUTED);
+        gg.drawString(this.font, "§6" + AmmoraLang.guiStr("admin.company_fee_label"), feeRx, feeY + 1, 0xFFFFFFFF);
     }
 
     private void renderEventsTab(GuiGraphics gg, int mx, int my, int mw, int mh) {

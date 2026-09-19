@@ -59,6 +59,28 @@ public final class WalletPacketHandler {
                 ));
             }
 
+            // Load company info for wallet
+            boolean hasComp = false;
+            String compName = "";
+            String compRole = "";
+            double compBal = 0.0;
+            double compLimit = 0.0;
+            double compSpent = 0.0;
+            try {
+                var comp = AmmoraMod.getMarketDAO().getPlayerCompany(player.getUUID());
+                if (comp != null) {
+                    hasComp = true;
+                    compName = comp.getCompanyName();
+                    compBal = MarketEngine.round2(comp.getBalanceCbx());
+                    var mem = AmmoraMod.getMarketDAO().getCompanyMember(comp.getCompanyId(), player.getUUID());
+                    if (mem != null) {
+                        compRole = mem.getRole();
+                        compLimit = mem.getDailyLimitCbx();
+                        compSpent = mem.getSpentTodayCbx();
+                    }
+                }
+            } catch (Exception ignored) {}
+
             ColdWalletDataPayload payload = new ColdWalletDataPayload(
                     MarketEngine.round2(acc.getBalanceCbx()),
                     acc.getRepLevel(),
@@ -66,7 +88,13 @@ public final class WalletPacketHandler {
                     nearbyPlayers,
                     ledgerItems,
                     statusMsg,
-                    isError
+                    isError,
+                    hasComp,
+                    compName,
+                    compRole,
+                    compBal,
+                    compLimit,
+                    compSpent
             );
             PacketDistributor.sendToPlayer(player, payload);
 
@@ -113,6 +141,48 @@ public final class WalletPacketHandler {
         if (player.distanceTo(targetPlayer) > 30.0) {
             sendColdWalletData(player, "key:wallet.notif_err_too_far;" + targetPlayer.getName().getString(), true);
             return;
+        }
+
+        if (payload.fromCompanyAccount()) {
+            try {
+                var comp = AmmoraMod.getMarketDAO().getPlayerCompany(player.getUUID());
+                if (comp == null) {
+                    sendColdWalletData(player, "key:company.err_not_in_company", true);
+                    return;
+                }
+                var mem = AmmoraMod.getMarketDAO().getCompanyMember(comp.getCompanyId(), player.getUUID());
+                if (mem == null || mem.isMember()) {
+                    sendColdWalletData(player, "key:company.err_withdraw_unauthorized", true);
+                    return;
+                }
+                if (!mem.canSpend(amount)) {
+                    sendColdWalletData(player, "key:company.err_daily_limit_exceeded", true);
+                    return;
+                }
+                if (comp.getBalanceCbx() < amount) {
+                    sendColdWalletData(player, "key:company.err_treasury_insufficient", true);
+                    return;
+                }
+                boolean ok = AmmoraMod.getMarketDAO().transferFromCompanyToPlayer(
+                        comp.getCompanyId(), player.getUUID(), player.getName().getString(),
+                        targetPlayer.getUUID(), targetPlayer.getName().getString(), amount
+                );
+                if (ok) {
+                    String amtStr = MarketEngine.round2(amount) + " CBX";
+                    player.sendSystemMessage(Component.translatable("message.ammora.wallet.corporate_transfer_sent", amtStr, targetPlayer.getName().getString(), comp.getCompanyName()));
+                    targetPlayer.sendSystemMessage(Component.translatable("message.ammora.wallet.corporate_transfer_received", amtStr, comp.getCompanyName(), player.getName().getString()));
+                    player.level().playSound(null, player.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+                    targetPlayer.level().playSound(null, targetPlayer.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+                    sendColdWalletData(player, "key:wallet.notif_sent;" + targetPlayer.getName().getString() + ";" + amtStr, false);
+                } else {
+                    sendColdWalletData(player, "key:company.err_treasury_insufficient", true);
+                }
+                return;
+            } catch (Exception e) {
+                AmmoraMod.LOGGER.error("Failed corporate P2P transfer", e);
+                sendColdWalletData(player, "key:company.err_generic", true);
+                return;
+            }
         }
 
         try {
@@ -180,7 +250,9 @@ public final class WalletPacketHandler {
                     dock.getOwnerName(),
                     resources,
                     statusMsg,
-                    isError
+                    isError,
+                    dock.getCompanyName(),
+                    dock.getCompanyId() != null
             );
             PacketDistributor.sendToPlayer(player, payload);
         } catch (Exception e) {
@@ -204,6 +276,26 @@ public final class WalletPacketHandler {
             // Check owner permission: if dock has an owner and it's not the current player (and player is not op)
             if (dock.getOwnerUuid() != null && !player.getUUID().equals(dock.getOwnerUuid()) && !player.hasPermissions(2)) {
                 sendPurchaseDockData(player, pos, AmmoraLang.notify("dock_owned_by", dock.getOwnerName()), true);
+                return;
+            }
+
+            if (payload.toggleCompanyLink()) {
+                var comp = AmmoraMod.getMarketDAO().getPlayerCompany(player.getUUID());
+                if (comp == null) {
+                    sendPurchaseDockData(player, pos, AmmoraLang.notify("company.err_not_in_company"), true);
+                    return;
+                }
+                if (dock.getCompanyId() != null) {
+                    dock.setCompanyId(null);
+                    dock.setCompanyName("");
+                    dock.setChanged();
+                    sendPurchaseDockData(player, pos, AmmoraLang.notify("dock.unlinked_from_company"), false);
+                } else {
+                    dock.setCompanyId(UUID.fromString(comp.getCompanyId()));
+                    dock.setCompanyName(comp.getCompanyName());
+                    dock.setChanged();
+                    sendPurchaseDockData(player, pos, AmmoraLang.notify("dock.linked_to_company", comp.getCompanyName()), false);
+                }
                 return;
             }
 

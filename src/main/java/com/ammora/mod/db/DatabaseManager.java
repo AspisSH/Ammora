@@ -399,6 +399,58 @@ public class DatabaseManager {
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_auctions_status ON live_auctions (status, expires_at);");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_auctions_seller ON live_auctions (seller_uuid);");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_auctions_bidder ON live_auctions (highest_bidder_uuid);");
+
+            // Companies / Corporate Accounts (Joint Accounts)
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS companies (
+                    company_id TEXT PRIMARY KEY,
+                    company_name TEXT NOT NULL UNIQUE,
+                    owner_uuid TEXT NOT NULL,
+                    balance_cbx REAL NOT NULL DEFAULT 0.0,
+                    created_at INTEGER NOT NULL
+                );
+            """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_companies_owner ON companies (owner_uuid);");
+
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS company_members (
+                    company_id TEXT NOT NULL,
+                    player_uuid TEXT NOT NULL,
+                    player_name TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    daily_limit_cbx REAL NOT NULL DEFAULT 100.0,
+                    spent_today_cbx REAL NOT NULL DEFAULT 0.0,
+                    last_spent_day INTEGER NOT NULL DEFAULT 0,
+                    joined_at INTEGER NOT NULL,
+                    PRIMARY KEY (company_id, player_uuid)
+                );
+            """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_comp_mem_player ON company_members (player_uuid);");
+
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS company_ledger (
+                    entry_id TEXT PRIMARY KEY,
+                    company_id TEXT NOT NULL,
+                    player_uuid TEXT NOT NULL,
+                    player_name TEXT NOT NULL,
+                    action_type TEXT NOT NULL,
+                    amount_cbx REAL NOT NULL,
+                    description TEXT NOT NULL,
+                    timestamp INTEGER NOT NULL
+                );
+            """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_comp_ledger ON company_ledger (company_id, timestamp DESC);");
+
+            // Safe column migration for player_shops: add company_id
+            try { stmt.execute("ALTER TABLE player_shops ADD COLUMN company_id TEXT DEFAULT NULL;"); } catch (SQLException ignored) {}
+
+            // System Configuration key-value table
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS system_config (
+                    config_key TEXT PRIMARY KEY,
+                    config_value TEXT NOT NULL
+                );
+            """);
         }
     }
 }

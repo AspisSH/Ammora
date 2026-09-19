@@ -266,4 +266,40 @@ public class DatabaseTest {
         List<AuctionRecord> expiredLater = dao.getExpiredActiveAuctions(loaded2.getExpiresAt() + 1000L);
         assertEquals(1, expiredLater.size());
     }
+
+    @Test
+    @DisplayName("Should successfully link and unlink player shop to corporate account")
+    public void testPlayerShopCompanyLinkAndUnlink() throws SQLException {
+        UUID owner = UUID.randomUUID();
+        String shopId = "shop-" + UUID.randomUUID();
+        String companyId = UUID.randomUUID().toString();
+
+        com.ammora.mod.db.PlayerShopRecord shop = new com.ammora.mod.db.PlayerShopRecord(
+                shopId, owner, "ShopOwner", "Test Shop",
+                "minecraft:overworld", 100, 64, 200,
+                true, 0, 0.0, System.currentTimeMillis(),
+                5, 64, false, null
+        );
+        dao.saveOrUpdatePlayerShop(shop);
+
+        com.ammora.mod.db.PlayerShopRecord loaded = dao.getPlayerShop(shopId);
+        assertNotNull(loaded);
+        assertNull(loaded.getCompanyId());
+
+        // Link to company
+        shop.setCompanyId(companyId);
+        dao.saveOrUpdatePlayerShop(shop);
+
+        loaded = dao.getPlayerShop(shopId);
+        assertNotNull(loaded);
+        assertEquals(companyId, loaded.getCompanyId());
+
+        // Unlink from company
+        shop.setCompanyId(null);
+        dao.saveOrUpdatePlayerShop(shop);
+
+        loaded = dao.getPlayerShop(shopId);
+        assertNotNull(loaded);
+        assertNull(loaded.getCompanyId());
+    }
 }

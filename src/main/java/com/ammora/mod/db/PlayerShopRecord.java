@@ -25,10 +25,13 @@ public class PlayerShopRecord {
     private int slotCapacity;
     private boolean networkUnlocked;
 
+    // Corporate link
+    private String companyId;
+
     public PlayerShopRecord(String shopId, UUID ownerUuid, String ownerName, String shopName,
                             String dimension, int posX, int posY, int posZ,
                             boolean broadcast, int totalSales, double accumulatedRevenue, long createdAt,
-                            int maxSlots, int slotCapacity, boolean networkUnlocked) {
+                            int maxSlots, int slotCapacity, boolean networkUnlocked, String companyId) {
         this.shopId = shopId;
         this.ownerUuid = ownerUuid;
         this.ownerName = ownerName;
@@ -44,6 +47,15 @@ public class PlayerShopRecord {
         this.maxSlots = Math.max(5, Math.min(10, maxSlots));
         this.slotCapacity = Math.max(64, slotCapacity);
         this.networkUnlocked = networkUnlocked;
+        this.companyId = companyId;
+    }
+
+    public PlayerShopRecord(String shopId, UUID ownerUuid, String ownerName, String shopName,
+                            String dimension, int posX, int posY, int posZ,
+                            boolean broadcast, int totalSales, double accumulatedRevenue, long createdAt,
+                            int maxSlots, int slotCapacity, boolean networkUnlocked) {
+        this(shopId, ownerUuid, ownerName, shopName, dimension, posX, posY, posZ,
+                broadcast, totalSales, accumulatedRevenue, createdAt, maxSlots, slotCapacity, networkUnlocked, null);
     }
 
     public PlayerShopRecord(String shopId, UUID ownerUuid, String ownerName, String shopName,
@@ -84,4 +96,7 @@ public class PlayerShopRecord {
     private int activeSlotCount;
     public int getActiveSlotCount() { return activeSlotCount; }
     public void setActiveSlotCount(int activeSlotCount) { this.activeSlotCount = activeSlotCount; }
+
+    public String getCompanyId() { return companyId; }
+    public void setCompanyId(String companyId) { this.companyId = companyId; }
 }

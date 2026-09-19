@@ -21,8 +21,26 @@ public record ColdWalletDataPayload(
         List<NearbyPlayerItem> nearbyPlayers,
         List<LedgerItem> ledgerEntries,
         String statusMessage,
-        boolean isError
+        boolean isError,
+        boolean hasCompany,
+        String companyName,
+        String companyRole,
+        double companyBalance,
+        double companyDailyLimit,
+        double companySpentToday
 ) implements CustomPacketPayload {
+
+    public ColdWalletDataPayload(
+            double balanceCbx,
+            int repLevel,
+            int repPoints,
+            List<NearbyPlayerItem> nearbyPlayers,
+            List<LedgerItem> ledgerEntries,
+            String statusMessage,
+            boolean isError
+    ) {
+        this(balanceCbx, repLevel, repPoints, nearbyPlayers, ledgerEntries, statusMessage, isError, false, "", "", 0.0, 0.0, 0.0);
+    }
 
     public static final Type<ColdWalletDataPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(AmmoraMod.MODID, "cold_wallet_data"));
@@ -53,7 +71,13 @@ public record ColdWalletDataPayload(
                 readPlayers(buf),
                 readLedger(buf),
                 buf.readUtf(),
-                buf.readBoolean()
+                buf.readBoolean(),
+                buf.readBoolean(),
+                buf.readUtf(),
+                buf.readUtf(),
+                buf.readDouble(),
+                buf.readDouble(),
+                buf.readDouble()
         );
     }
 
@@ -97,6 +121,12 @@ public record ColdWalletDataPayload(
 
         buf.writeUtf(statusMessage != null ? statusMessage : "");
         buf.writeBoolean(isError);
+        buf.writeBoolean(hasCompany);
+        buf.writeUtf(companyName != null ? companyName : "");
+        buf.writeUtf(companyRole != null ? companyRole : "");
+        buf.writeDouble(companyBalance);
+        buf.writeDouble(companyDailyLimit);
+        buf.writeDouble(companySpentToday);
     }
 
     @Override

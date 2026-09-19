@@ -13,8 +13,13 @@ public record ServerboundShopPurchasePayload(
         String shopId,
         int slotIndex,
         int amount,
-        boolean isRemote
+        boolean isRemote,
+        boolean fromCompanyAccount
 ) implements CustomPacketPayload {
+
+    public ServerboundShopPurchasePayload(String shopId, int slotIndex, int amount, boolean isRemote) {
+        this(shopId, slotIndex, amount, isRemote, false);
+    }
 
     public static final Type<ServerboundShopPurchasePayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(AmmoraMod.MODID, "shop_purchase"));
@@ -29,6 +34,7 @@ public record ServerboundShopPurchasePayload(
                 buf.readUtf(),
                 buf.readVarInt(),
                 buf.readVarInt(),
+                buf.readBoolean(),
                 buf.readBoolean()
         );
     }
@@ -38,6 +44,7 @@ public record ServerboundShopPurchasePayload(
         buf.writeVarInt(slotIndex);
         buf.writeVarInt(amount);
         buf.writeBoolean(isRemote);
+        buf.writeBoolean(fromCompanyAccount);
     }
 
     @Override

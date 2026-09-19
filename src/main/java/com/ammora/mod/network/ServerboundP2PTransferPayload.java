@@ -15,8 +15,13 @@ import java.util.UUID;
 public record ServerboundP2PTransferPayload(
         UUID targetPlayerUuid,
         String targetPlayerName,
-        double amount
+        double amount,
+        boolean fromCompanyAccount
 ) implements CustomPacketPayload {
+
+    public ServerboundP2PTransferPayload(UUID targetPlayerUuid, String targetPlayerName, double amount) {
+        this(targetPlayerUuid, targetPlayerName, amount, false);
+    }
 
     public static final Type<ServerboundP2PTransferPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(AmmoraMod.MODID, "p2p_transfer"));
@@ -30,7 +35,8 @@ public record ServerboundP2PTransferPayload(
         this(
                 buf.readUUID(),
                 buf.readUtf(),
-                buf.readDouble()
+                buf.readDouble(),
+                buf.readBoolean()
         );
     }
 
@@ -38,6 +44,7 @@ public record ServerboundP2PTransferPayload(
         buf.writeUUID(targetPlayerUuid != null ? targetPlayerUuid : new UUID(0L, 0L));
         buf.writeUtf(targetPlayerName != null ? targetPlayerName : "");
         buf.writeDouble(amount);
+        buf.writeBoolean(fromCompanyAccount);
     }
 
     @Override

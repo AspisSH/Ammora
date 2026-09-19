@@ -130,15 +130,45 @@ public final class AuctionPacketHandler {
             return;
         }
 
-        PlayerAccount bidderAcc = AmmoraMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
-        if (bidderAcc == null || bidderAcc.getBalanceCbx() < bidAmount) {
-            EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("auction_insufficient_funds", MarketEngine.round2(bidAmount)), true);
-            return;
-        }
+        com.ammora.mod.db.CompanyRecord bidderCompany = null;
+        com.ammora.mod.db.CompanyMemberRecord bidderMember = null;
+        PlayerAccount bidderAcc = null;
 
-        // Deduct escrow from bidder
-        bidderAcc.withdraw(bidAmount);
-        AmmoraMod.getMarketDAO().saveAccount(bidderAcc);
+        if (payload.fromCompanyAccount()) {
+            bidderCompany = AmmoraMod.getMarketDAO().getPlayerCompany(player.getUUID());
+            if (bidderCompany == null) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_not_in_company"), true);
+                return;
+            }
+            bidderMember = AmmoraMod.getMarketDAO().getCompanyMember(bidderCompany.getCompanyId(), player.getUUID());
+            if (bidderMember == null || bidderMember.isMember()) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_withdraw_unauthorized"), true);
+                return;
+            }
+            if (!bidderMember.canSpend(bidAmount)) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_daily_limit_exceeded"), true);
+                return;
+            }
+            if (bidderCompany.getBalanceCbx() < bidAmount) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_treasury_insufficient"), true);
+                return;
+            }
+            bidderCompany.withdraw(bidAmount);
+            bidderMember.recordSpend(bidAmount);
+            AmmoraMod.getMarketDAO().updateCompanyBalance(bidderCompany.getCompanyId(), bidderCompany.getBalanceCbx());
+            AmmoraMod.getMarketDAO().saveCompanyMember(bidderMember);
+            AmmoraMod.getMarketDAO().recordCompanyLedger(bidderCompany.getCompanyId(), player.getUUID(), player.getName().getString(),
+                    "AUCTION_BID", bidAmount, "Placed bid on lot " + auction.getDisplayName());
+        } else {
+            bidderAcc = AmmoraMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
+            if (bidderAcc == null || bidderAcc.getBalanceCbx() < bidAmount) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("auction_insufficient_funds", MarketEngine.round2(bidAmount)), true);
+                return;
+            }
+            // Deduct escrow from bidder
+            bidderAcc.withdraw(bidAmount);
+            AmmoraMod.getMarketDAO().saveAccount(bidderAcc);
+        }
 
         // Refund previous bidder if one existed
         if (auction.getHighestBidderUuid() != null && auction.getCurrentBid() > 0.0) {
@@ -183,15 +213,45 @@ public final class AuctionPacketHandler {
         }
 
         double buyout = auction.getBuyoutPrice();
-        PlayerAccount buyerAcc = AmmoraMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
-        if (buyerAcc == null || buyerAcc.getBalanceCbx() < buyout) {
-            EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("auction_insufficient_funds", MarketEngine.round2(buyout)), true);
-            return;
-        }
+        com.ammora.mod.db.CompanyRecord buyerCompany = null;
+        com.ammora.mod.db.CompanyMemberRecord buyerMember = null;
+        PlayerAccount buyerAcc = null;
 
-        // Deduct buyout from buyer
-        buyerAcc.withdraw(buyout);
-        AmmoraMod.getMarketDAO().saveAccount(buyerAcc);
+        if (payload.fromCompanyAccount()) {
+            buyerCompany = AmmoraMod.getMarketDAO().getPlayerCompany(player.getUUID());
+            if (buyerCompany == null) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_not_in_company"), true);
+                return;
+            }
+            buyerMember = AmmoraMod.getMarketDAO().getCompanyMember(buyerCompany.getCompanyId(), player.getUUID());
+            if (buyerMember == null || buyerMember.isMember()) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_withdraw_unauthorized"), true);
+                return;
+            }
+            if (!buyerMember.canSpend(buyout)) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_daily_limit_exceeded"), true);
+                return;
+            }
+            if (buyerCompany.getBalanceCbx() < buyout) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_treasury_insufficient"), true);
+                return;
+            }
+            buyerCompany.withdraw(buyout);
+            buyerMember.recordSpend(buyout);
+            AmmoraMod.getMarketDAO().updateCompanyBalance(buyerCompany.getCompanyId(), buyerCompany.getBalanceCbx());
+            AmmoraMod.getMarketDAO().saveCompanyMember(buyerMember);
+            AmmoraMod.getMarketDAO().recordCompanyLedger(buyerCompany.getCompanyId(), player.getUUID(), player.getName().getString(),
+                    "AUCTION_BUY", buyout, "Instant buyout for lot " + auction.getDisplayName());
+        } else {
+            buyerAcc = AmmoraMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
+            if (buyerAcc == null || buyerAcc.getBalanceCbx() < buyout) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("auction_insufficient_funds", MarketEngine.round2(buyout)), true);
+                return;
+            }
+            // Deduct buyout from buyer
+            buyerAcc.withdraw(buyout);
+            AmmoraMod.getMarketDAO().saveAccount(buyerAcc);
+        }
 
         // Refund previous bidder if one existed
         if (auction.getHighestBidderUuid() != null && auction.getCurrentBid() > 0.0) {

@@ -174,8 +174,71 @@ public final class EscrowPacketHandler {
                 ));
             }
 
+            // Load Company Data
+            double regFee = AmmoraMod.getMarketDAO().getCompanyRegistrationFee();
+            MarketplaceDataPayload.CompanyData companyData = MarketplaceDataPayload.CompanyData.none(regFee);
+            try {
+                var comp = AmmoraMod.getMarketDAO().getPlayerCompany(player.getUUID());
+                if (comp != null) {
+                    var member = AmmoraMod.getMarketDAO().getCompanyMember(comp.getCompanyId(), player.getUUID());
+                    String myRole = member != null ? member.getRole() : "MEMBER";
+                    double myLimit = member != null ? member.getDailyLimitCbx() : 0.0;
+                    double mySpent = member != null ? member.getSpentTodayCbx() : 0.0;
+
+                    List<MarketplaceDataPayload.CompanyMemberItem> memberItems = new ArrayList<>();
+                    for (var m : AmmoraMod.getMarketDAO().getCompanyMembers(comp.getCompanyId())) {
+                        memberItems.add(new MarketplaceDataPayload.CompanyMemberItem(
+                                m.getPlayerUuid(),
+                                m.getPlayerName(),
+                                m.getRole(),
+                                m.getDailyLimitCbx(),
+                                m.getSpentTodayCbx(),
+                                m.getJoinedAt()
+                        ));
+                    }
+
+                    List<MarketplaceDataPayload.CompanyLedgerItem> ledgerItems = new ArrayList<>();
+                    for (var l : AmmoraMod.getMarketDAO().getCompanyLedger(comp.getCompanyId(), 30)) {
+                        ledgerItems.add(new MarketplaceDataPayload.CompanyLedgerItem(
+                                l.getEntryId(),
+                                l.getPlayerUuid(),
+                                l.getPlayerName(),
+                                l.getActionType(),
+                                l.getAmountCbx(),
+                                l.getDescription(),
+                                l.getTimestamp()
+                        ));
+                    }
+
+                    String ownerName = "Unknown";
+                    for (var m : memberItems) {
+                        if (m.playerUuid().equals(comp.getOwnerUuid())) {
+                            ownerName = m.playerName();
+                            break;
+                        }
+                    }
+
+                    companyData = new MarketplaceDataPayload.CompanyData(
+                            true,
+                            comp.getCompanyId(),
+                            comp.getCompanyName(),
+                            comp.getOwnerUuid(),
+                            ownerName,
+                            comp.getBalanceCbx(),
+                            myRole,
+                            myLimit,
+                            mySpent,
+                            regFee,
+                            memberItems,
+                            ledgerItems
+                    );
+                }
+            } catch (Exception e) {
+                AmmoraMod.LOGGER.error("Failed to load company data for player " + player.getName().getString(), e);
+            }
+
             PacketDistributor.sendToPlayer(player, new MarketplaceDataPayload(
-                    balance, repLevel, catalog, shops, buyReqs, questItems, txs, deliveries, auctionItems, statusMsg, isError
+                    balance, repLevel, catalog, shops, buyReqs, questItems, txs, deliveries, auctionItems, companyData, statusMsg, isError
             ));
         } catch (Exception e) {
             AmmoraMod.LOGGER.error("Failed to send marketplace data to " + player.getName().getString(), e);

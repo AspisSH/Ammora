@@ -1,5 +1,6 @@
 package com.ammora.mod.db;
 
+import com.ammora.mod.AmmoraMod;
 import com.ammora.mod.core.Candle;
 import com.ammora.mod.core.DeliveryContract;
 import com.ammora.mod.core.LedgerEntry;
@@ -262,8 +263,14 @@ public class MarketDAO {
     }
 
     public PlayerAccount getAccount(UUID playerUuid, String defaultName) throws SQLException {
+        try (Connection conn = dbManager.getConnection()) {
+            return getAccountInternal(conn, playerUuid, defaultName);
+        }
+    }
+
+    public PlayerAccount getAccountInternal(Connection conn, UUID playerUuid, String defaultName) throws SQLException {
         String sql = "SELECT * FROM accounts WHERE player_uuid = ?;";
-        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, playerUuid.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -280,11 +287,17 @@ public class MarketDAO {
         }
         // Create initial account if absent
         PlayerAccount newAcc = new PlayerAccount(playerUuid, defaultName, 100.0, 0, 1, System.currentTimeMillis());
-        saveAccount(newAcc);
+        saveAccountInternal(conn, newAcc);
         return newAcc;
     }
 
     public void saveAccount(PlayerAccount account) throws SQLException {
+        try (Connection conn = dbManager.getConnection()) {
+            saveAccountInternal(conn, account);
+        }
+    }
+
+    public void saveAccountInternal(Connection conn, PlayerAccount account) throws SQLException {
         String sql = """
             INSERT INTO accounts (player_uuid, player_name, balance_cbx, rep_points, rep_level, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -295,7 +308,7 @@ public class MarketDAO {
                 rep_level = excluded.rep_level,
                 updated_at = excluded.updated_at;
         """;
-        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, account.getPlayerUuid().toString());
             ps.setString(2, account.getPlayerName());
             ps.setDouble(3, account.getBalanceCbx());
@@ -882,8 +895,8 @@ public class MarketDAO {
 
     public void saveOrUpdatePlayerShop(PlayerShopRecord shop) throws SQLException {
         String sql = """
-            INSERT INTO player_shops (shop_id, owner_uuid, owner_name, shop_name, dimension, pos_x, pos_y, pos_z, is_broadcast, total_sales, revenue_accumulated, created_at, max_slots, slot_capacity, network_unlocked)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO player_shops (shop_id, owner_uuid, owner_name, shop_name, dimension, pos_x, pos_y, pos_z, is_broadcast, total_sales, revenue_accumulated, created_at, max_slots, slot_capacity, network_unlocked, company_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(shop_id) DO UPDATE SET
                 owner_name = excluded.owner_name,
                 shop_name = excluded.shop_name,
@@ -892,7 +905,8 @@ public class MarketDAO {
                 revenue_accumulated = excluded.revenue_accumulated,
                 max_slots = excluded.max_slots,
                 slot_capacity = excluded.slot_capacity,
-                network_unlocked = excluded.network_unlocked;
+                network_unlocked = excluded.network_unlocked,
+                company_id = excluded.company_id;
         """;
         try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, shop.getShopId());
@@ -910,6 +924,7 @@ public class MarketDAO {
             ps.setInt(13, shop.getMaxSlots());
             ps.setInt(14, shop.getSlotCapacity());
             ps.setInt(15, shop.isNetworkUnlocked() ? 1 : 0);
+            ps.setString(16, shop.getCompanyId());
             ps.executeUpdate();
         }
     }
@@ -918,6 +933,7 @@ public class MarketDAO {
         int maxSlots = 5;
         int slotCapacity = 64;
         boolean networkUnlocked = false;
+        String companyId = null;
         try {
             maxSlots = rs.getInt("max_slots");
             if (maxSlots < 5) maxSlots = 5;
@@ -928,6 +944,9 @@ public class MarketDAO {
         } catch (SQLException ignored) {}
         try {
             networkUnlocked = rs.getInt("network_unlocked") == 1;
+        } catch (SQLException ignored) {}
+        try {
+            companyId = rs.getString("company_id");
         } catch (SQLException ignored) {}
 
         return new PlayerShopRecord(
@@ -945,7 +964,8 @@ public class MarketDAO {
                 rs.getLong("created_at"),
                 maxSlots,
                 slotCapacity,
-                networkUnlocked
+                networkUnlocked,
+                companyId
         );
     }
 
@@ -1474,6 +1494,548 @@ public class MarketDAO {
                 rs.getLong("created_at"),
                 rs.getLong("expires_at"),
                 rs.getString("status")
+        );
+    }
+
+    // ==========================================
+    // COMPANIES & JOINT ACCOUNTS
+    // ==========================================
+
+    public CompanyRecord createCompany(String companyName, UUID ownerUuid, String ownerName, double fee) throws SQLException {
+        String trimmedName = companyName.trim();
+        try (Connection conn = dbManager.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                // 1. Check if name already taken (case-insensitive)
+                String checkNameSql = "SELECT 1 FROM companies WHERE LOWER(company_name) = LOWER(?);";
+                try (PreparedStatement ps = conn.prepareStatement(checkNameSql)) {
+                    ps.setString(1, trimmedName);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            throw new SQLException("COMPANY_NAME_TAKEN");
+                        }
+                    }
+                }
+
+                // 2. Check if player is already member of a company
+                String checkMemberSql = "SELECT 1 FROM company_members WHERE player_uuid = ?;";
+                try (PreparedStatement ps = conn.prepareStatement(checkMemberSql)) {
+                    ps.setString(1, ownerUuid.toString());
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            throw new SQLException("ALREADY_IN_COMPANY");
+                        }
+                    }
+                }
+
+                // 3. Deduct registration fee from founder
+                if (fee > 0.0) {
+                    PlayerAccount founderAcc = getAccountInternal(conn, ownerUuid, ownerName);
+                    if (founderAcc == null || !founderAcc.withdraw(fee)) {
+                        throw new SQLException("INSUFFICIENT_FUNDS_FEE");
+                    }
+                    saveAccountInternal(conn, founderAcc);
+                }
+
+                // 4. Create company
+                String compId = UUID.randomUUID().toString();
+                long now = System.currentTimeMillis();
+                String insertCompSql = "INSERT INTO companies (company_id, company_name, owner_uuid, balance_cbx, created_at) VALUES (?, ?, ?, 0.0, ?);";
+                try (PreparedStatement ps = conn.prepareStatement(insertCompSql)) {
+                    ps.setString(1, compId);
+                    ps.setString(2, trimmedName);
+                    ps.setString(3, ownerUuid.toString());
+                    ps.setLong(4, now);
+                    ps.executeUpdate();
+                }
+
+                // 5. Add founder as OWNER
+                long today = now / 86400000L;
+                String insertMemberSql = "INSERT INTO company_members (company_id, player_uuid, player_name, role, daily_limit_cbx, spent_today_cbx, last_spent_day, joined_at) VALUES (?, ?, ?, 'OWNER', 0.0, 0.0, ?, ?);";
+                try (PreparedStatement ps = conn.prepareStatement(insertMemberSql)) {
+                    ps.setString(1, compId);
+                    ps.setString(2, ownerUuid.toString());
+                    ps.setString(3, ownerName);
+                    ps.setLong(4, today);
+                    ps.setLong(5, now);
+                    ps.executeUpdate();
+                }
+
+                // 6. Record registration ledger
+                String ledgerSql = "INSERT INTO company_ledger (entry_id, company_id, player_uuid, player_name, action_type, amount_cbx, description, timestamp) VALUES (?, ?, ?, ?, 'REGISTRATION', ?, 'Company registration fee', ?);";
+                try (PreparedStatement ps = conn.prepareStatement(ledgerSql)) {
+                    ps.setString(1, UUID.randomUUID().toString());
+                    ps.setString(2, compId);
+                    ps.setString(3, ownerUuid.toString());
+                    ps.setString(4, ownerName);
+                    ps.setDouble(5, fee);
+                    ps.setLong(6, now);
+                    ps.executeUpdate();
+                }
+
+                conn.commit();
+                return new CompanyRecord(compId, trimmedName, ownerUuid, 0.0, now);
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        }
+    }
+
+    public CompanyRecord getCompany(String companyId) throws SQLException {
+        try (Connection conn = dbManager.getConnection()) {
+            return getCompanyInternal(conn, companyId);
+        }
+    }
+
+    public CompanyRecord getCompanyInternal(Connection conn, String companyId) throws SQLException {
+        String sql = "SELECT * FROM companies WHERE company_id = ?;";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, companyId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapCompany(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public CompanyRecord getCompanyByName(String name) throws SQLException {
+        String sql = "SELECT * FROM companies WHERE LOWER(company_name) = LOWER(?);";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapCompany(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public CompanyRecord getPlayerCompany(UUID playerUuid) throws SQLException {
+        String sql = """
+            SELECT c.* FROM companies c
+            JOIN company_members m ON c.company_id = m.company_id
+            WHERE m.player_uuid = ?;
+        """;
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, playerUuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapCompany(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public void updateCompanyBalance(String companyId, double newBalance) throws SQLException {
+        String sql = "UPDATE companies SET balance_cbx = ? WHERE company_id = ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, newBalance);
+            ps.setString(2, companyId);
+            ps.executeUpdate();
+        }
+    }
+
+    public List<CompanyMemberRecord> getCompanyMembers(String companyId) throws SQLException {
+        List<CompanyMemberRecord> list = new ArrayList<>();
+        String sql = "SELECT * FROM company_members WHERE company_id = ? ORDER BY joined_at ASC;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, companyId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapCompanyMember(rs));
+                }
+            }
+        }
+        return list;
+    }
+
+    public CompanyMemberRecord getCompanyMember(String companyId, UUID playerUuid) throws SQLException {
+        try (Connection conn = dbManager.getConnection()) {
+            return getCompanyMemberInternal(conn, companyId, playerUuid);
+        }
+    }
+
+    public CompanyMemberRecord getCompanyMemberInternal(Connection conn, String companyId, UUID playerUuid) throws SQLException {
+        String sql = "SELECT * FROM company_members WHERE company_id = ? AND player_uuid = ?;";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, companyId);
+            ps.setString(2, playerUuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapCompanyMember(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public void addCompanyMember(String companyId, UUID playerUuid, String playerName, String role, double dailyLimit) throws SQLException {
+        long now = System.currentTimeMillis();
+        long today = now / 86400000L;
+        String sql = """
+            INSERT INTO company_members (company_id, player_uuid, player_name, role, daily_limit_cbx, spent_today_cbx, last_spent_day, joined_at)
+            VALUES (?, ?, ?, ?, ?, 0.0, ?, ?);
+        """;
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, companyId);
+            ps.setString(2, playerUuid.toString());
+            ps.setString(3, playerName);
+            ps.setString(4, role != null ? role.toUpperCase() : "MEMBER");
+            ps.setDouble(5, Math.max(0.0, dailyLimit));
+            ps.setLong(6, today);
+            ps.setLong(7, now);
+            ps.executeUpdate();
+        }
+    }
+
+    public void removeCompanyMember(String companyId, UUID playerUuid) throws SQLException {
+        String sql = "DELETE FROM company_members WHERE company_id = ? AND player_uuid = ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, companyId);
+            ps.setString(2, playerUuid.toString());
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateMemberRole(String companyId, UUID playerUuid, String role) throws SQLException {
+        String sql = "UPDATE company_members SET role = ? WHERE company_id = ? AND player_uuid = ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, role != null ? role.toUpperCase() : "MEMBER");
+            ps.setString(2, companyId);
+            ps.setString(3, playerUuid.toString());
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateMemberDailyLimit(String companyId, UUID playerUuid, double dailyLimit) throws SQLException {
+        String sql = "UPDATE company_members SET daily_limit_cbx = ? WHERE company_id = ? AND player_uuid = ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, Math.max(0.0, dailyLimit));
+            ps.setString(2, companyId);
+            ps.setString(3, playerUuid.toString());
+            ps.executeUpdate();
+        }
+    }
+
+    public void saveCompanyMember(CompanyMemberRecord member) throws SQLException {
+        try (Connection conn = dbManager.getConnection()) {
+            saveCompanyMemberInternal(conn, member);
+        }
+    }
+
+    public void saveCompanyMemberInternal(Connection conn, CompanyMemberRecord member) throws SQLException {
+        String sql = """
+            UPDATE company_members
+            SET role = ?, daily_limit_cbx = ?, spent_today_cbx = ?, last_spent_day = ?, player_name = ?
+            WHERE company_id = ? AND player_uuid = ?;
+        """;
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, member.getRole());
+            ps.setDouble(2, member.getDailyLimitCbx());
+            ps.setDouble(3, member.getSpentTodayCbx());
+            ps.setLong(4, member.getLastSpentDay());
+            ps.setString(5, member.getPlayerName());
+            ps.setString(6, member.getCompanyId());
+            ps.setString(7, member.getPlayerUuid().toString());
+            ps.executeUpdate();
+        }
+    }
+
+    public boolean depositToCompany(String companyId, UUID playerUuid, String playerName, double amount) throws SQLException {
+        if (amount <= 0.0) return false;
+        try (Connection conn = dbManager.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                PlayerAccount acc = getAccountInternal(conn, playerUuid, playerName);
+                if (acc == null || !acc.withdraw(amount)) {
+                    conn.rollback();
+                    return false;
+                }
+                saveAccountInternal(conn, acc);
+
+                String sql = "UPDATE companies SET balance_cbx = balance_cbx + ? WHERE company_id = ?;";
+                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setDouble(1, amount);
+                    ps.setString(2, companyId);
+                    ps.executeUpdate();
+                }
+
+                recordCompanyLedgerInternal(conn, companyId, playerUuid, playerName, "DEPOSIT", amount, "Personal deposit into treasury");
+
+                conn.commit();
+                return true;
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        }
+    }
+
+    public boolean withdrawFromCompany(String companyId, UUID playerUuid, String playerName, double amount) throws SQLException {
+        if (amount <= 0.0) return false;
+        try (Connection conn = dbManager.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                CompanyRecord comp = getCompanyInternal(conn, companyId);
+                CompanyMemberRecord member = getCompanyMemberInternal(conn, companyId, playerUuid);
+                if (comp == null || member == null) {
+                    conn.rollback();
+                    return false;
+                }
+
+                if (comp.getBalanceCbx() < amount) {
+                    conn.rollback();
+                    return false;
+                }
+
+                if (!member.canSpend(amount)) {
+                    conn.rollback();
+                    return false;
+                }
+
+                member.recordSpend(amount);
+                saveCompanyMemberInternal(conn, member);
+
+                String sql = "UPDATE companies SET balance_cbx = balance_cbx - ? WHERE company_id = ?;";
+                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setDouble(1, amount);
+                    ps.setString(2, companyId);
+                    ps.executeUpdate();
+                }
+
+                PlayerAccount acc = getAccountInternal(conn, playerUuid, playerName);
+                acc.deposit(amount);
+                saveAccountInternal(conn, acc);
+
+                recordCompanyLedgerInternal(conn, companyId, playerUuid, playerName, "WITHDRAW", amount, "Withdrawal from treasury");
+
+                conn.commit();
+                return true;
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        }
+    }
+
+    public boolean transferFromCompanyToPlayer(String companyId, UUID senderUuid, String senderName,
+                                              UUID targetUuid, String targetName, double amount) throws SQLException {
+        if (amount <= 0.0) return false;
+        try (Connection conn = dbManager.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                CompanyRecord comp = getCompanyInternal(conn, companyId);
+                CompanyMemberRecord member = getCompanyMemberInternal(conn, companyId, senderUuid);
+                if (comp == null || member == null) {
+                    conn.rollback();
+                    return false;
+                }
+
+                if (comp.getBalanceCbx() < amount) {
+                    conn.rollback();
+                    return false;
+                }
+
+                if (!member.canSpend(amount)) {
+                    conn.rollback();
+                    return false;
+                }
+
+                member.recordSpend(amount);
+                saveCompanyMemberInternal(conn, member);
+
+                String sql = "UPDATE companies SET balance_cbx = balance_cbx - ? WHERE company_id = ?;";
+                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setDouble(1, amount);
+                    ps.setString(2, companyId);
+                    ps.executeUpdate();
+                }
+
+                PlayerAccount targetAcc = getAccountInternal(conn, targetUuid, targetName);
+                targetAcc.deposit(amount);
+                saveAccountInternal(conn, targetAcc);
+
+                recordCompanyLedgerInternal(conn, companyId, senderUuid, senderName, "TRANSFER_OUT", amount, "Corporate transfer to " + targetName);
+
+                conn.commit();
+                return true;
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        }
+    }
+
+    public void recordCompanyLedger(String companyId, UUID playerUuid, String playerName, String actionType, double amount, String description) throws SQLException {
+        try (Connection conn = dbManager.getConnection()) {
+            recordCompanyLedgerInternal(conn, companyId, playerUuid, playerName, actionType, amount, description);
+        }
+    }
+
+    private void recordCompanyLedgerInternal(Connection conn, String companyId, UUID playerUuid, String playerName, String actionType, double amount, String description) throws SQLException {
+        String sql = """
+            INSERT INTO company_ledger (entry_id, company_id, player_uuid, player_name, action_type, amount_cbx, description, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+        """;
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, UUID.randomUUID().toString());
+            ps.setString(2, companyId);
+            ps.setString(3, playerUuid != null ? playerUuid.toString() : new UUID(0L, 0L).toString());
+            ps.setString(4, playerName != null ? playerName : "System");
+            ps.setString(5, actionType);
+            ps.setDouble(6, amount);
+            ps.setString(7, description != null ? description : "");
+            ps.setLong(8, System.currentTimeMillis());
+            ps.executeUpdate();
+        }
+    }
+
+    public List<CompanyLedgerRecord> getCompanyLedger(String companyId, int limit) throws SQLException {
+        List<CompanyLedgerRecord> list = new ArrayList<>();
+        String sql = "SELECT * FROM company_ledger WHERE company_id = ? ORDER BY timestamp DESC LIMIT ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, companyId);
+            ps.setInt(2, Math.max(1, limit));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapCompanyLedger(rs));
+                }
+            }
+        }
+        return list;
+    }
+
+    public boolean dissolveCompany(String companyId, UUID ownerUuid, String ownerName) throws SQLException {
+        try (Connection conn = dbManager.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                CompanyRecord comp = getCompanyInternal(conn, companyId);
+                if (comp == null || !comp.getOwnerUuid().equals(ownerUuid)) {
+                    conn.rollback();
+                    return false;
+                }
+
+                // Refund remaining treasury to owner
+                if (comp.getBalanceCbx() > 0.0) {
+                    PlayerAccount ownerAcc = getAccountInternal(conn, ownerUuid, ownerName);
+                    ownerAcc.deposit(comp.getBalanceCbx());
+                    saveAccountInternal(conn, ownerAcc);
+                }
+
+                // Clear company link from shops
+                try (PreparedStatement ps = conn.prepareStatement("UPDATE player_shops SET company_id = NULL WHERE company_id = ?;")) {
+                    ps.setString(1, companyId);
+                    ps.executeUpdate();
+                }
+
+                // Delete ledger, members, company
+                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM company_ledger WHERE company_id = ?;")) {
+                    ps.setString(1, companyId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM company_members WHERE company_id = ?;")) {
+                    ps.setString(1, companyId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM companies WHERE company_id = ?;")) {
+                    ps.setString(1, companyId);
+                    ps.executeUpdate();
+                }
+
+                conn.commit();
+                return true;
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        }
+    }
+
+    public String getSystemConfig(String key, String defaultValue) {
+        String sql = "SELECT config_value FROM system_config WHERE config_key = ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, key);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("config_value");
+                }
+            }
+        } catch (SQLException e) {
+            AmmoraMod.LOGGER.error("Failed to read system config for key: " + key, e);
+        }
+        return defaultValue;
+    }
+
+    public void setSystemConfig(String key, String value) throws SQLException {
+        String sql = "INSERT INTO system_config (config_key, config_value) VALUES (?, ?) ON CONFLICT(config_key) DO UPDATE SET config_value = excluded.config_value;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, key);
+            ps.setString(2, value);
+            ps.executeUpdate();
+        }
+    }
+
+    public double getCompanyRegistrationFee() {
+        String val = getSystemConfig("company_registration_fee", "500.0");
+        try {
+            return Math.max(0.0, Double.parseDouble(val));
+        } catch (NumberFormatException e) {
+            return 500.0;
+        }
+    }
+
+    public void setCompanyRegistrationFee(double fee) throws SQLException {
+        setSystemConfig("company_registration_fee", String.valueOf(Math.max(0.0, fee)));
+    }
+
+    private CompanyRecord mapCompany(ResultSet rs) throws SQLException {
+        return new CompanyRecord(
+                rs.getString("company_id"),
+                rs.getString("company_name"),
+                UUID.fromString(rs.getString("owner_uuid")),
+                rs.getDouble("balance_cbx"),
+                rs.getLong("created_at")
+        );
+    }
+
+    private CompanyMemberRecord mapCompanyMember(ResultSet rs) throws SQLException {
+        return new CompanyMemberRecord(
+                rs.getString("company_id"),
+                UUID.fromString(rs.getString("player_uuid")),
+                rs.getString("player_name"),
+                rs.getString("role"),
+                rs.getDouble("daily_limit_cbx"),
+                rs.getDouble("spent_today_cbx"),
+                rs.getLong("last_spent_day"),
+                rs.getLong("joined_at")
+        );
+    }
+
+    private CompanyLedgerRecord mapCompanyLedger(ResultSet rs) throws SQLException {
+        return new CompanyLedgerRecord(
+                rs.getString("entry_id"),
+                rs.getString("company_id"),
+                UUID.fromString(rs.getString("player_uuid")),
+                rs.getString("player_name"),
+                rs.getString("action_type"),
+                rs.getDouble("amount_cbx"),
+                rs.getString("description"),
+                rs.getLong("timestamp")
         );
     }
 }

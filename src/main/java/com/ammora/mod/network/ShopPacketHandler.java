@@ -137,9 +137,41 @@ public final class ShopPacketHandler {
                     shop.setBroadcast(!shop.isBroadcast());
                     AmmoraMod.getMarketDAO().saveOrUpdatePlayerShop(shop);
                 }
+                case "TOGGLE_COMPANY" -> {
+                    boolean isCurrentlyLinked = shop.getCompanyId() != null && !shop.getCompanyId().trim().isEmpty();
+                    if (isCurrentlyLinked) {
+                        shop.setCompanyId(null);
+                        AmmoraMod.getMarketDAO().saveOrUpdatePlayerShop(shop);
+                        player.sendSystemMessage(Component.translatable("message.ammora.shop.unlinked_from_company"));
+                    } else {
+                        var playerComp = AmmoraMod.getMarketDAO().getPlayerCompany(player.getUUID());
+                        if (playerComp == null) {
+                            player.sendSystemMessage(Component.translatable("message.ammora.company.err_not_in_company"));
+                            break;
+                        }
+                        shop.setCompanyId(playerComp.getCompanyId());
+                        AmmoraMod.getMarketDAO().saveOrUpdatePlayerShop(shop);
+                        player.sendSystemMessage(Component.translatable("message.ammora.shop.linked_to_company", playerComp.getCompanyName()));
+                    }
+                }
                 case "CLAIM_REVENUE" -> {
                     double rev = shop.getAccumulatedRevenue();
                     if (rev > 0.001) {
+                        if (shop.getCompanyId() != null) {
+                            com.ammora.mod.db.CompanyRecord comp = AmmoraMod.getMarketDAO().getCompany(shop.getCompanyId());
+                            if (comp != null) {
+                                comp.deposit(rev);
+                                AmmoraMod.getMarketDAO().updateCompanyBalance(comp.getCompanyId(), comp.getBalanceCbx());
+                                AmmoraMod.getMarketDAO().recordCompanyLedger(comp.getCompanyId(), player.getUUID(), player.getName().getString(),
+                                        "SHOP_REVENUE", rev, "Claimed revenue from " + shop.getShopName());
+                                shop.clearRevenue();
+                                AmmoraMod.getMarketDAO().saveOrUpdatePlayerShop(shop);
+                                player.sendSystemMessage(Component.translatable("message.ammora.shop.revenue_credited_company",
+                                        String.format(Locale.US, "%.2f", MarketEngine.round2(rev)), comp.getCompanyName()));
+                                player.level().playSound(null, player.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+                                break;
+                            }
+                        }
                         PlayerAccount acc = AmmoraMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
                         if (acc != null) {
                             acc.deposit(rev);
@@ -165,6 +197,19 @@ public final class ShopPacketHandler {
 
             var be = shopLevel.getBlockEntity(pos);
             if (be instanceof com.ammora.mod.blocks.PlayerShopEntity shopEntity) {
+                if (shop.getCompanyId() != null && !shop.getCompanyId().trim().isEmpty()) {
+                    try {
+                        shopEntity.setCompanyId(UUID.fromString(shop.getCompanyId()));
+                        var comp = AmmoraMod.getMarketDAO().getCompany(shop.getCompanyId());
+                        shopEntity.setCompanyName(comp != null ? comp.getCompanyName() : "");
+                    } catch (Exception ignored) {
+                        shopEntity.setCompanyId(null);
+                        shopEntity.setCompanyName("");
+                    }
+                } else {
+                    shopEntity.setCompanyId(null);
+                    shopEntity.setCompanyName("");
+                }
                 shopEntity.setShopName(shop.getShopName());
                 shopEntity.setMaxSlots(shop.getMaxSlots());
                 shopEntity.setSlotCapacity(shop.getSlotCapacity());
@@ -208,14 +253,55 @@ public final class ShopPacketHandler {
             double fee = payload.isRemote() ? Math.max(1.0, Math.round(baseTotal * 0.02 * 100.0) / 100.0) : 0.0;
             double totalCharge = baseTotal + fee;
 
-            PlayerAccount buyerAcc = AmmoraMod.getMarketDAO().getAccount(buyer.getUUID(), buyer.getName().getString());
-            if (buyerAcc == null || buyerAcc.getBalanceCbx() < totalCharge) {
-                if (payload.isRemote()) {
-                    EscrowPacketHandler.sendMarketplaceData(buyer, "key:message.ammora.shop.insufficient_funds;" + MarketEngine.round2(totalCharge), true);
-                } else {
-                    buyer.sendSystemMessage(Component.translatable("message.ammora.shop.insufficient_funds", String.format(Locale.US, "%.2f", totalCharge)));
+            com.ammora.mod.db.CompanyRecord buyerCompany = null;
+            com.ammora.mod.db.CompanyMemberRecord buyerMember = null;
+            PlayerAccount buyerAcc = null;
+
+            if (payload.fromCompanyAccount()) {
+                buyerCompany = AmmoraMod.getMarketDAO().getPlayerCompany(buyer.getUUID());
+                if (buyerCompany == null) {
+                    if (payload.isRemote()) {
+                        EscrowPacketHandler.sendMarketplaceData(buyer, AmmoraLang.notify("company.err_not_in_company"), true);
+                    } else {
+                        buyer.sendSystemMessage(Component.translatable("message.ammora.company.err_not_in_company"));
+                    }
+                    return;
                 }
-                return;
+                buyerMember = AmmoraMod.getMarketDAO().getCompanyMember(buyerCompany.getCompanyId(), buyer.getUUID());
+                if (buyerMember == null || buyerMember.isMember()) {
+                    if (payload.isRemote()) {
+                        EscrowPacketHandler.sendMarketplaceData(buyer, AmmoraLang.notify("company.err_withdraw_unauthorized"), true);
+                    } else {
+                        buyer.sendSystemMessage(Component.translatable("message.ammora.company.err_withdraw_unauthorized"));
+                    }
+                    return;
+                }
+                if (!buyerMember.canSpend(totalCharge)) {
+                    if (payload.isRemote()) {
+                        EscrowPacketHandler.sendMarketplaceData(buyer, AmmoraLang.notify("company.err_daily_limit_exceeded"), true);
+                    } else {
+                        buyer.sendSystemMessage(Component.translatable("message.ammora.company.err_daily_limit_exceeded"));
+                    }
+                    return;
+                }
+                if (buyerCompany.getBalanceCbx() < totalCharge) {
+                    if (payload.isRemote()) {
+                        EscrowPacketHandler.sendMarketplaceData(buyer, AmmoraLang.notify("company.err_treasury_insufficient"), true);
+                    } else {
+                        buyer.sendSystemMessage(Component.translatable("message.ammora.company.err_treasury_insufficient"));
+                    }
+                    return;
+                }
+            } else {
+                buyerAcc = AmmoraMod.getMarketDAO().getAccount(buyer.getUUID(), buyer.getName().getString());
+                if (buyerAcc == null || buyerAcc.getBalanceCbx() < totalCharge) {
+                    if (payload.isRemote()) {
+                        EscrowPacketHandler.sendMarketplaceData(buyer, "key:message.ammora.shop.insufficient_funds;" + MarketEngine.round2(totalCharge), true);
+                    } else {
+                        buyer.sendSystemMessage(Component.translatable("message.ammora.shop.insufficient_funds", String.format(Locale.US, "%.2f", totalCharge)));
+                    }
+                    return;
+                }
             }
 
             // Verify buyer has enough inventory space before charging money or extracting items
@@ -242,14 +328,46 @@ public final class ShopPacketHandler {
                 return;
             }
 
-            // Deduct from buyer
-            buyerAcc.withdraw(totalCharge);
-            AmmoraMod.getMarketDAO().saveAccount(buyerAcc);
+            // Deduct from buyer (company or personal)
+            if (buyerCompany != null && buyerMember != null) {
+                buyerCompany.withdraw(totalCharge);
+                buyerMember.recordSpend(totalCharge);
+                AmmoraMod.getMarketDAO().updateCompanyBalance(buyerCompany.getCompanyId(), buyerCompany.getBalanceCbx());
+                AmmoraMod.getMarketDAO().saveCompanyMember(buyerMember);
+                AmmoraMod.getMarketDAO().recordCompanyLedger(buyerCompany.getCompanyId(), buyer.getUUID(), buyer.getName().getString(),
+                        "MARKET_BUY", totalCharge, "Purchased " + slot.getDisplayName() + " x" + count + " from " + shop.getShopName());
+            } else if (buyerAcc != null) {
+                buyerAcc.withdraw(totalCharge);
+                AmmoraMod.getMarketDAO().saveAccount(buyerAcc);
+            }
 
-            // Add revenue to shop
-            shop.addRevenue(baseTotal);
-            shop.incrementSales(count);
-            AmmoraMod.getMarketDAO().saveOrUpdatePlayerShop(shop);
+            // Credit revenue to company account automatically if shop is linked to a company
+            boolean shopHasCompany = shop.getCompanyId() != null && !shop.getCompanyId().trim().isEmpty();
+            com.ammora.mod.db.CompanyRecord shopComp = null;
+            if (shopHasCompany) {
+                shopComp = AmmoraMod.getMarketDAO().getCompany(shop.getCompanyId());
+            }
+
+            if (shopComp != null) {
+                shopComp.deposit(baseTotal);
+                AmmoraMod.getMarketDAO().updateCompanyBalance(shopComp.getCompanyId(), shopComp.getBalanceCbx());
+                AmmoraMod.getMarketDAO().recordCompanyLedger(shopComp.getCompanyId(), shop.getOwnerUuid(), shop.getOwnerName(),
+                        "SHOP_SALE", baseTotal, "Automated revenue: " + slot.getDisplayName() + " x" + count + " from " + shop.getShopName());
+                shop.incrementSales(count);
+                AmmoraMod.getMarketDAO().saveOrUpdatePlayerShop(shop);
+
+                if (buyer.getServer() != null) {
+                    ServerPlayer ownerPlayer = buyer.getServer().getPlayerList().getPlayer(shop.getOwnerUuid());
+                    if (ownerPlayer != null) {
+                        ownerPlayer.sendSystemMessage(Component.translatable("message.ammora.shop.revenue_credited_company",
+                                String.format(Locale.US, "%.2f", baseTotal), shopComp.getCompanyName()));
+                    }
+                }
+            } else {
+                shop.addRevenue(baseTotal);
+                shop.incrementSales(count);
+                AmmoraMod.getMarketDAO().saveOrUpdatePlayerShop(shop);
+            }
 
             // Decrement stock in DB
             slot.setStockCount(slot.getStockCount() - count);
@@ -269,7 +387,7 @@ public final class ShopPacketHandler {
             var be = shopLevel.getBlockEntity(pos);
             if (be instanceof com.ammora.mod.blocks.PlayerShopEntity shopEntity) {
                 extracted = shopEntity.getInventory().extractItem(slot.getSlotIndex(), count, false);
-                shopEntity.addSale(count, baseTotal);
+                shopEntity.addSale(count, shopComp != null ? 0.0 : baseTotal);
             }
 
             // If block entity was not loaded (remote chunk), deserialize from slot.getItemNbt()

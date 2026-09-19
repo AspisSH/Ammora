@@ -173,11 +173,32 @@ public class PlayerShopScreen extends Screen {
         }
 
         if (data.isOwner()) {
-            // Upgrades modal open button in header
+            // Header buttons for owner on the right side
+            int upgradesW = 78;
+            int upgradesX = mx + mw - 8 - upgradesW;
             this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("shop.btn_upgrades_tab")), b -> {
                 this.showUpgradesModal = true;
                 rebuildWidgets();
-            }).bounds(mx + 175, my + 6, 75, 16).build());
+            }).bounds(upgradesX, my + 6, upgradesW, 18).build());
+
+            // Company revenue routing button
+            boolean hasLinkedComp = data.linkedCompanyName() != null && !data.linkedCompanyName().isEmpty();
+            String compShort = hasLinkedComp ? data.linkedCompanyName() : AmmoraLang.guiStr("shop.link_company");
+            if (this.font.width(compShort) > 46) {
+                compShort = this.font.plainSubstrByWidth(compShort, 40) + "..";
+            }
+            String compBtnText = (hasLinkedComp ? "§6🏢 " : "§7🏢 ") + compShort;
+            int compW = 88;
+            int compX = upgradesX - 4 - compW;
+            this.addRenderableWidget(Button.builder(Component.literal(compBtnText), b -> {
+                PacketDistributor.sendToServer(new ServerboundConfigureShopPayload(
+                        data.shopId(), "TOGGLE_COMPANY", 0, 0, ""
+                ));
+            }).bounds(compX, my + 6, compW, 18)
+            .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    hasLinkedComp ? AmmoraLang.guiStr("shop.linked_company_tooltip", data.linkedCompanyName()) : AmmoraLang.guiStr("shop.link_company_tooltip")
+            )))
+            .build());
 
             int footY = my + mh - 46;
 
@@ -239,12 +260,23 @@ public class PlayerShopScreen extends Screen {
             }
 
             // Claim revenue button
-            String revText = String.format(Locale.US, AmmoraLang.guiStr("shop.btn_withdraw_rev"), data.accumulatedRevenue());
-            this.addRenderableWidget(Button.builder(Component.literal(revText), b -> {
+            String revText;
+            boolean canClaim = data.accumulatedRevenue() > 0.001;
+            if (hasLinkedComp && !canClaim) {
+                revText = AmmoraLang.guiStr("shop.auto_revenue_company");
+            } else {
+                revText = AmmoraLang.guiStr("shop.btn_withdraw_rev", data.accumulatedRevenue());
+            }
+            var claimBtn = Button.builder(Component.literal(revText), b -> {
                 PacketDistributor.sendToServer(new ServerboundConfigureShopPayload(
                         data.shopId(), "CLAIM_REVENUE", 0, 0, ""
                 ));
-            }).bounds(mx + 275, footY + 24, 99, 16).build());
+            }).bounds(mx + 275, footY + 24, 99, 16).build();
+            claimBtn.active = canClaim;
+            if (hasLinkedComp && !canClaim) {
+                claimBtn.setTooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("shop.auto_revenue_tooltip", data.linkedCompanyName()))));
+            }
+            this.addRenderableWidget(claimBtn);
         }
 
         // Action buttons on cards
@@ -371,17 +403,26 @@ public class PlayerShopScreen extends Screen {
         gg.hLine(mx + 1, mx + mw - 1, my + 30, COLOR_BORDER_MUTED);
 
         // Header Titles
-        String titleStr = "§b⚡ " + data.shopName();
-        gg.drawString(this.font, titleStr, mx + 10, my + 8, 0xFFFFFFFF);
+        if (data.isOwner()) {
+            String titleStr = "§b⚡ " + truncate(data.shopName(), 24) + (data.isBroadcast() ? " §a●" : " §7○");
+            gg.drawString(this.font, titleStr, mx + 10, my + 7, 0xFFFFFFFF);
 
-        String ownerStr = AmmoraLang.guiStr("shop.owner_label", data.ownerName()) + (data.isOwner() ? AmmoraLang.guiStr("shop.owner_you") : "");
-        gg.drawString(this.font, ownerStr, mx + 10, my + 19, 0xFFFFFFFF);
+            String ownerStr = AmmoraLang.guiStr("shop.owner_label", data.ownerName()) + AmmoraLang.guiStr("shop.owner_you");
+            String ownerLine = ownerStr + " §8| §e" + String.format(Locale.US, "%.2f CBX", data.buyerBalanceCbx());
+            gg.drawString(this.font, ownerLine, mx + 10, my + 18, 0xFFFFFFFF);
+        } else {
+            String titleStr = "§b⚡ " + truncate(data.shopName(), 28);
+            gg.drawString(this.font, titleStr, mx + 10, my + 8, 0xFFFFFFFF);
 
-        String statusBadge = data.isBroadcast() ? AmmoraLang.guiStr("shop.status_online") : AmmoraLang.guiStr("shop.status_local");
-        gg.drawString(this.font, statusBadge, mx + mw - 120, my + 8, 0xFFFFFFFF);
+            String ownerStr = AmmoraLang.guiStr("shop.owner_label", data.ownerName());
+            gg.drawString(this.font, ownerStr, mx + 10, my + 19, 0xFFFFFFFF);
 
-        String balanceStr = AmmoraLang.guiStr("shop.buyer_balance", String.format(Locale.US, "%.2f", data.buyerBalanceCbx()));
-        gg.drawString(this.font, balanceStr, mx + mw - this.font.width(balanceStr) - 10, my + 19, 0xFFFFFFFF);
+            String statusBadge = data.isBroadcast() ? AmmoraLang.guiStr("shop.status_online") : AmmoraLang.guiStr("shop.status_local");
+            gg.drawString(this.font, statusBadge, mx + mw - this.font.width(statusBadge) - 10, my + 8, 0xFFFFFFFF);
+
+            String balanceStr = AmmoraLang.guiStr("shop.buyer_balance", String.format(Locale.US, "%.2f", data.buyerBalanceCbx()));
+            gg.drawString(this.font, balanceStr, mx + mw - this.font.width(balanceStr) - 10, my + 19, 0xFFFFFFFF);
+        }
 
         // Render 10 Cards
         int startX = mx + 12;
@@ -754,6 +795,11 @@ public class PlayerShopScreen extends Screen {
         }
 
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    private String truncate(String s, int maxLen) {
+        if (s == null) return "";
+        return s.length() <= maxLen ? s : s.substring(0, Math.max(0, maxLen - 1)) + "…";
     }
 
     private void drawOutlinedBox(GuiGraphics gg, int x, int y, int w, int h, int color) {

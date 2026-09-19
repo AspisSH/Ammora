@@ -29,8 +29,19 @@ public record PlayerShopDataPayload(
         int slotCapacity,
         boolean networkUnlocked,
         String statusMessage,
-        boolean isError
+        boolean isError,
+        String linkedCompanyName
 ) implements CustomPacketPayload {
+
+    public PlayerShopDataPayload(
+            String shopId, String shopName, UUID ownerUuid, String ownerName, boolean isOwner,
+            boolean isBroadcast, double accumulatedRevenue, int totalSales, double buyerBalanceCbx,
+            List<ShopSlotItem> slots, int maxSlots, int slotCapacity, boolean networkUnlocked,
+            String statusMessage, boolean isError
+    ) {
+        this(shopId, shopName, ownerUuid, ownerName, isOwner, isBroadcast, accumulatedRevenue, totalSales,
+                buyerBalanceCbx, slots, maxSlots, slotCapacity, networkUnlocked, statusMessage, isError, "");
+    }
 
     public static final Type<PlayerShopDataPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(AmmoraMod.MODID, "player_shop_data"));
@@ -75,7 +86,8 @@ public record PlayerShopDataPayload(
                 buf.readVarInt(),
                 buf.readBoolean(),
                 buf.readUtf(),
-                buf.readBoolean()
+                buf.readBoolean(),
+                buf.readUtf()
         );
     }
 
@@ -128,6 +140,7 @@ public record PlayerShopDataPayload(
 
         buf.writeUtf(statusMessage != null ? statusMessage : "");
         buf.writeBoolean(isError);
+        buf.writeUtf(linkedCompanyName != null ? linkedCompanyName : "");
     }
 
     @Override

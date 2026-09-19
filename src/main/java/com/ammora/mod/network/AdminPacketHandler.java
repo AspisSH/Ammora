@@ -190,6 +190,12 @@ public class AdminPacketHandler {
                         }
                     }
                 }
+                case "SET_COMPANY_FEE" -> {
+                    double fee = Math.max(0.0, MarketEngine.round2(numVal));
+                    AmmoraMod.getMarketDAO().setCompanyRegistrationFee(fee);
+                    AmmoraMod.LOGGER.info("Admin {} set company registration fee to {} CBX", player.getName().getString(), fee);
+                    sendAdminData(player, AmmoraLang.notify("admin.company_fee_set", String.format(Locale.US, "%.2f", fee)), false);
+                }
                 case "REFRESH" -> {
                     sendAdminData(player, AmmoraLang.notify("admin.refreshed"), false);
                 }
@@ -283,6 +289,8 @@ public class AdminPacketHandler {
                 }
             }
 
+            double companyRegistrationFee = AmmoraMod.getMarketDAO().getCompanyRegistrationFee();
+
             ClientboundAdminDataPayload payload = new ClientboundAdminDataPayload(
                     accounts,
                     transactions,
@@ -293,6 +301,7 @@ public class AdminPacketHandler {
                     activeEventRemainingDays,
                     activeEventMultiplier,
                     resources,
+                    companyRegistrationFee,
                     statusMsg,
                     isError
             );

@@ -6,6 +6,7 @@ import com.ammora.mod.network.ServerboundAuctionActionPayload;
 import com.ammora.mod.network.ServerboundBuyRequestPayload;
 import com.ammora.mod.network.ServerboundClaimDeliveryPayload;
 import com.ammora.mod.network.ServerboundCommunityQuestPayload;
+import com.ammora.mod.network.ServerboundCompanyActionPayload;
 import com.ammora.mod.network.ServerboundShopPurchasePayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -89,6 +90,17 @@ public class MarketplaceScreen extends Screen {
     private String lastQuestTitle = "";
     private String lastQuestReward = "100.0";
     private String lastQuestDesc = "";
+
+    // Corporate Account & Company Tab State
+    private static boolean useCompanyAccount = false;
+    private EditBox companyNameInput;
+    private String lastCompanyName = "";
+    private EditBox companyAmountInput;
+    private String lastCompanyAmount = "100.0";
+    private EditBox companyInviteInput;
+    private String lastCompanyInvite = "";
+    private int companyMemberPage = 0;
+    private int companyLedgerPage = 0;
 
     private String statusNotification = "";
     private boolean statusNotificationError = false;
@@ -224,58 +236,89 @@ public class MarketplaceScreen extends Screen {
 
         dynamicCatalogButtons.clear();
 
-        int mw = 400, mh = 240;
+        int mw = 400, mh = 260;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
-        // Navigation Tabs (7 tabs)
-        int tabW = 52;
+        // Header Account Toggle Button (if player has company)
+        var comp = (data != null) ? data.company() : null;
+        if (comp != null && comp.hasCompany()) {
+            String compName = comp.companyName();
+            if (this.font.width(compName) > 46) {
+                compName = this.font.plainSubstrByWidth(compName, 40) + "..";
+            }
+            String toggleText = useCompanyAccount ? "§6🏢 " + compName : "§b👤 " + AmmoraLang.guiStr("account.personal");
+            int toggleW = Math.max(54, Math.min(76, this.font.width(toggleText) + 10));
+            int toggleX = mx + 130;
+            this.addRenderableWidget(Button.builder(Component.literal(toggleText), b -> {
+                useCompanyAccount = !useCompanyAccount;
+                rebuildWidgets();
+            }).bounds(toggleX, my + 4, toggleW, 16)
+            .tooltip(Tooltip.create(Component.literal(
+                    useCompanyAccount ? AmmoraLang.guiStr("account.switch_to_personal") : AmmoraLang.guiStr("account.switch_to_company")
+            )))
+            .build());
+        }
+
+        // Navigation Tabs (2 rows of 4 tabs, spacious 93px width)
+        int tabW = 93;
+        int tabH = 16;
+        int tabY1 = my + 24;
+        int tabY2 = my + 42;
+
+        // Row 1: Market (0), Shops (1), Auctions (2), RFQ (3)
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 0 ? AmmoraLang.guiStr("market.tab_market_active") : AmmoraLang.guiStr("market.tab_market_inactive")),
                 b -> { activeTab = 0; catalogPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 8, my + 26, tabW, 18).build());
+        ).bounds(mx + 8, tabY1, tabW, tabH).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 1 ? AmmoraLang.guiStr("market.tab_shops_active") : AmmoraLang.guiStr("market.tab_shops_inactive")),
                 b -> { activeTab = 1; shopsPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 63, my + 26, tabW, 18).build());
+        ).bounds(mx + 105, tabY1, tabW, tabH).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 2 ? AmmoraLang.guiStr("market.tab_auctions_active") : AmmoraLang.guiStr("market.tab_auctions_inactive")),
                 b -> { activeTab = 2; auctionPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 118, my + 26, tabW, 18).build());
+        ).bounds(mx + 202, tabY1, tabW, tabH).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 3 ? AmmoraLang.guiStr("market.tab_rfq_active") : AmmoraLang.guiStr("market.tab_rfq_inactive")),
                 b -> { activeTab = 3; reqPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 173, my + 26, tabW, 18).build());
+        ).bounds(mx + 299, tabY1, tabW, tabH).build());
 
+        // Row 2: Quests (4), Company (5), Buffer (6), History (7)
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 4 ? AmmoraLang.guiStr("market.tab_quests_active") : AmmoraLang.guiStr("market.tab_quests_inactive")),
                 b -> { activeTab = 4; questsPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 228, my + 26, tabW, 18).build());
+        ).bounds(mx + 8, tabY2, tabW, tabH).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(activeTab == 5 ? AmmoraLang.guiStr("market.tab_company_active") : AmmoraLang.guiStr("market.tab_company_inactive")),
+                b -> { activeTab = 5; rebuildWidgets(); }
+        ).bounds(mx + 105, tabY2, tabW, tabH).build());
 
         int delCount = (data != null && data.deliveries() != null) ? data.deliveries().size() : 0;
         String bufferTabTitle;
         if (delCount > 0) {
-            bufferTabTitle = activeTab == 5 ? AmmoraLang.guiStr("market.tab_buffer_count_active", delCount) : AmmoraLang.guiStr("market.tab_buffer_count_inactive", delCount);
+            bufferTabTitle = activeTab == 6 ? AmmoraLang.guiStr("market.tab_buffer_count_active", delCount) : AmmoraLang.guiStr("market.tab_buffer_count_inactive", delCount);
         } else {
-            bufferTabTitle = activeTab == 5 ? AmmoraLang.guiStr("market.tab_buffer_active") : AmmoraLang.guiStr("market.tab_buffer_inactive");
+            bufferTabTitle = activeTab == 6 ? AmmoraLang.guiStr("market.tab_buffer_active") : AmmoraLang.guiStr("market.tab_buffer_inactive");
         }
         this.addRenderableWidget(Button.builder(
                 Component.literal(bufferTabTitle),
-                b -> { activeTab = 5; deliveryPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 283, my + 26, tabW, 18).build());
+                b -> { activeTab = 6; deliveryPage = 0; rebuildWidgets(); }
+        ).bounds(mx + 202, tabY2, tabW, tabH).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(activeTab == 6 ? AmmoraLang.guiStr("market.tab_history_active") : AmmoraLang.guiStr("market.tab_history_inactive")),
-                b -> { activeTab = 6; txPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 338, my + 26, tabW, 18).build());
+                Component.literal(activeTab == 7 ? AmmoraLang.guiStr("market.tab_history_active") : AmmoraLang.guiStr("market.tab_history_inactive")),
+                b -> { activeTab = 7; txPage = 0; rebuildWidgets(); }
+        ).bounds(mx + 299, tabY2, tabW, tabH).build());
 
         if (activeTab == 0) {
             // TAB 0: Global Market Catalog
             int searchW = (filterShopId != null && !filterShopId.isEmpty()) ? 115 : 140;
-            searchBox = new EditBox(this.font, mx + 12, my + 48, searchW, 16, Component.literal(AmmoraLang.guiStr("market.search")));
+            searchBox = new EditBox(this.font, mx + 12, my + 62, searchW, 16, Component.literal(AmmoraLang.guiStr("market.search")));
             searchBox.setValue(lastCatalogSearch);
             searchBox.setResponder(val -> {
                 lastCatalogSearch = val;
@@ -290,7 +333,7 @@ public class MarketplaceScreen extends Screen {
                     filterShopName = null;
                     catalogPage = 0;
                     rebuildWidgets();
-                }).bounds(mx + 132, my + 48, 76, 16).build());
+                }).bounds(mx + 132, my + 62, 76, 16).build());
             }
 
             // Populate dynamic catalog pagination and purchase buttons
@@ -304,14 +347,14 @@ public class MarketplaceScreen extends Screen {
                 this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
                     shopsPage--;
                     rebuildWidgets();
-                }).bounds(mx + mw - 60, my + 48, 22, 16).build());
+                }).bounds(mx + mw - 60, my + 62, 22, 16).build());
             }
 
             if (shopsPage < totalPages - 1) {
                 this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
                     shopsPage++;
                     rebuildWidgets();
-                }).bounds(mx + mw - 34, my + 48, 22, 16).build());
+                }).bounds(mx + mw - 34, my + 62, 22, 16).build());
             }
 
             int startIndex = shopsPage * 5;
@@ -319,7 +362,7 @@ public class MarketplaceScreen extends Screen {
                 int sIdx = startIndex + i;
                 if (sIdx < shops.size()) {
                     var shop = shops.get(sIdx);
-                    int rowY = my + 68 + i * 32;
+                    int rowY = my + 82 + i * 32;
 
                     // Replaced "To chat" with "Goods" to view products of this shop
                     this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_products")), b -> {
@@ -340,38 +383,38 @@ public class MarketplaceScreen extends Screen {
             this.addRenderableWidget(Button.builder(
                     Component.literal((auctionFilter == 0 ? "§6§l" : "§7") + AmmoraLang.guiStr("auction.filter_all")),
                     b -> { auctionFilter = 0; auctionPage = 0; rebuildWidgets(); }
-            ).bounds(mx + 12, my + 48, 42, 16).build());
+            ).bounds(mx + 12, my + 62, 42, 16).build());
 
             // Filter button: My Lots
             this.addRenderableWidget(Button.builder(
                     Component.literal((auctionFilter == 1 ? "§6§l" : "§7") + AmmoraLang.guiStr("auction.filter_own")),
                     b -> { auctionFilter = 1; auctionPage = 0; rebuildWidgets(); }
-            ).bounds(mx + 56, my + 48, 56, 16).build());
+            ).bounds(mx + 56, my + 62, 56, 16).build());
 
             // Filter button: My Bids
             this.addRenderableWidget(Button.builder(
                     Component.literal((auctionFilter == 2 ? "§6§l" : "§7") + AmmoraLang.guiStr("auction.filter_bids")),
                     b -> { auctionFilter = 2; auctionPage = 0; rebuildWidgets(); }
-            ).bounds(mx + 114, my + 48, 56, 16).build());
+            ).bounds(mx + 114, my + 62, 56, 16).build());
 
             // [+ Create Lot] button
             this.addRenderableWidget(Button.builder(
                     Component.literal(AmmoraLang.guiStr("auction.create_lot")),
                     b -> { showCreateAuctionModal = true; createAuctionSlot = -1; rebuildWidgets(); }
-            ).bounds(mx + 174, my + 48, 88, 16).build());
+            ).bounds(mx + 174, my + 62, 88, 16).build());
 
             if (auctionPage > 0) {
                 this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
                     auctionPage--;
                     rebuildWidgets();
-                }).bounds(mx + mw - 60, my + 48, 22, 16).build());
+                }).bounds(mx + mw - 60, my + 62, 22, 16).build());
             }
 
             if (auctionPage < totalPages - 1) {
                 this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
                     auctionPage++;
                     rebuildWidgets();
-                }).bounds(mx + mw - 34, my + 48, 22, 16).build());
+                }).bounds(mx + mw - 34, my + 62, 22, 16).build());
             }
 
             int startIndex = auctionPage * 4;
@@ -379,7 +422,7 @@ public class MarketplaceScreen extends Screen {
                 int aIdx = startIndex + i;
                 if (aIdx < filtered.size()) {
                     var a = filtered.get(aIdx);
-                    int rowY = my + 68 + i * 39;
+                    int rowY = my + 82 + i * 39;
 
                     if (a.isOwn()) {
                         if (a.highestBidderUuid() == null) {
@@ -396,7 +439,7 @@ public class MarketplaceScreen extends Screen {
                             String buyoutLabel = AmmoraLang.guiStr("auction.btn_buyout", String.format(Locale.US, "%.1f", a.buyoutPrice()));
                             var bidBtn = Button.builder(Component.literal(bidLabel), b -> {
                                 PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
-                                        "BID", a.auctionId(), -1, 0, 0, 0, 0, nextBid
+                                        "BID", a.auctionId(), -1, 0, 0, 0, 0, nextBid, useCompanyAccount
                                 ));
                             }).bounds(mx + mw - 148, rowY + 10, 70, 18)
                             .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("auction.btn_bid_tooltip", String.format(Locale.US, "%.1f", nextBid)))))
@@ -405,7 +448,7 @@ public class MarketplaceScreen extends Screen {
 
                             var buyoutBtn = Button.builder(Component.literal(buyoutLabel), b -> {
                                 PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
-                                        "BUYOUT", a.auctionId(), -1, 0, 0, 0, 0, 0
+                                        "BUYOUT", a.auctionId(), -1, 0, 0, 0, 0, 0, useCompanyAccount
                                 ));
                             }).bounds(mx + mw - 76, rowY + 10, 70, 18)
                             .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("auction.btn_buyout_tooltip", String.format(Locale.US, "%.1f", a.buyoutPrice())))))
@@ -414,7 +457,7 @@ public class MarketplaceScreen extends Screen {
                         } else {
                             var bidBtn = Button.builder(Component.literal(bidLabel), b -> {
                                 PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
-                                        "BID", a.auctionId(), -1, 0, 0, 0, 0, nextBid
+                                        "BID", a.auctionId(), -1, 0, 0, 0, 0, nextBid, useCompanyAccount
                                 ));
                             }).bounds(mx + mw - 80, rowY + 10, 74, 18)
                             .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("auction.btn_bid_tooltip", String.format(Locale.US, "%.1f", nextBid)))))
@@ -433,14 +476,14 @@ public class MarketplaceScreen extends Screen {
                 this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
                     reqPage--;
                     rebuildWidgets();
-                }).bounds(mx + mw - 60, my + 48, 22, 16).build());
+                }).bounds(mx + mw - 60, my + 62, 22, 16).build());
             }
 
             if (reqPage < totalPages - 1) {
                 this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
                     reqPage++;
                     rebuildWidgets();
-                }).bounds(mx + mw - 34, my + 48, 22, 16).build());
+                }).bounds(mx + mw - 34, my + 62, 22, 16).build());
             }
 
             int startIndex = reqPage * 4;
@@ -448,7 +491,7 @@ public class MarketplaceScreen extends Screen {
                 int rIdx = startIndex + i;
                 if (rIdx < reqs.size()) {
                     var req = reqs.get(rIdx);
-                    int rowY = my + 68 + i * 33;
+                    int rowY = my + 82 + i * 33;
 
                     if (req.isOwn()) {
                         this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_cancel")), b -> {
@@ -545,20 +588,20 @@ public class MarketplaceScreen extends Screen {
             this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_new_quest")), b -> {
                 showCreateQuestModal = true;
                 rebuildWidgets();
-            }).bounds(mx + 12, my + 48, 85, 16).build());
+            }).bounds(mx + 12, my + 62, 85, 16).build());
 
             if (questsPage > 0) {
                 this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
                     questsPage--;
                     rebuildWidgets();
-                }).bounds(mx + mw - 60, my + 48, 22, 16).build());
+                }).bounds(mx + mw - 60, my + 62, 22, 16).build());
             }
 
             if (questsPage < totalPages - 1) {
                 this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
                     questsPage++;
                     rebuildWidgets();
-                }).bounds(mx + mw - 34, my + 48, 22, 16).build());
+                }).bounds(mx + mw - 34, my + 62, 22, 16).build());
             }
 
             int startIndex = questsPage * 4;
@@ -566,7 +609,7 @@ public class MarketplaceScreen extends Screen {
                 int qIdx = startIndex + i;
                 if (qIdx < quests.size()) {
                     var q = quests.get(qIdx);
-                    int rowY = my + 70 + i * 38;
+                    int rowY = my + 82 + i * 38;
 
                     this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_open")), b -> {
                         selectedQuest = q;
@@ -575,7 +618,9 @@ public class MarketplaceScreen extends Screen {
                 }
             }
         } else if (activeTab == 5) {
-            // TAB 5: Delivery Buffer (10-slot persistent storage)
+            initCompanyTab(mx, my, mw, mh);
+        } else if (activeTab == 6) {
+            // TAB 6: Delivery Buffer (10-slot persistent storage)
             var deliveries = (data != null && data.deliveries() != null) ? data.deliveries() : List.<MarketplaceDataPayload.DeliveryBufferItem>of();
             int totalPages = Math.max(1, (deliveries.size() + 9) / 10);
 
@@ -583,14 +628,14 @@ public class MarketplaceScreen extends Screen {
                 this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
                     deliveryPage--;
                     rebuildWidgets();
-                }).bounds(mx + 194, my + 48, 20, 16).build());
+                }).bounds(mx + 194, my + 62, 20, 16).build());
             }
 
             if (deliveryPage < totalPages - 1) {
                 this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
                     deliveryPage++;
                     rebuildWidgets();
-                }).bounds(mx + 216, my + 48, 20, 16).build());
+                }).bounds(mx + 216, my + 62, 20, 16).build());
             }
 
             // Big Action Button "Claim All"
@@ -599,7 +644,7 @@ public class MarketplaceScreen extends Screen {
                 if (this.minecraft != null) {
                     this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 }
-            }).bounds(mx + mw - 150, my + 48, 140, 16).build();
+            }).bounds(mx + mw - 150, my + 62, 140, 16).build();
             claimAllBtn.active = !deliveries.isEmpty();
             this.addRenderableWidget(claimAllBtn);
 
@@ -612,7 +657,7 @@ public class MarketplaceScreen extends Screen {
                     int col = i % 2;
                     int row = i / 2;
                     int cardX = (col == 0) ? (mx + 10) : (mx + 204);
-                    int cardY = my + 68 + row * 32;
+                    int cardY = my + 82 + row * 32;
                     int cardW = 186;
 
                     var takeBtn = Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_take")), b -> {
@@ -624,8 +669,8 @@ public class MarketplaceScreen extends Screen {
                     this.addRenderableWidget(takeBtn);
                 }
             }
-        } else if (activeTab == 6) {
-            // TAB 6: History Ledger
+        } else if (activeTab == 7) {
+            // TAB 7: History Ledger
             var txs = data.transactions();
             int totalPages = Math.max(1, (txs.size() + 4) / 5);
 
@@ -633,14 +678,14 @@ public class MarketplaceScreen extends Screen {
                 this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
                     txPage--;
                     rebuildWidgets();
-                }).bounds(mx + mw - 60, my + 48, 22, 16).build());
+                }).bounds(mx + mw - 60, my + 62, 22, 16).build());
             }
 
             if (txPage < totalPages - 1) {
                 this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
                     txPage++;
                     rebuildWidgets();
-                }).bounds(mx + mw - 34, my + 48, 22, 16).build());
+                }).bounds(mx + mw - 34, my + 62, 22, 16).build());
             }
         }
     }
@@ -906,7 +951,7 @@ public class MarketplaceScreen extends Screen {
 
         if (data == null || activeTab != 0) return;
 
-        int mw = 400, mh = 240;
+        int mw = 400, mh = 260;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
@@ -920,7 +965,7 @@ public class MarketplaceScreen extends Screen {
             var prevBtn = Button.builder(Component.literal("◀"), b -> {
                 catalogPage--;
                 updateDynamicCatalogWidgets();
-            }).bounds(mx + mw - 60, my + 48, 22, 16).build();
+            }).bounds(mx + mw - 60, my + 62, 22, 16).build();
             dynamicCatalogButtons.add(prevBtn);
             this.addRenderableWidget(prevBtn);
         }
@@ -929,7 +974,7 @@ public class MarketplaceScreen extends Screen {
             var nextBtn = Button.builder(Component.literal("▶"), b -> {
                 catalogPage++;
                 updateDynamicCatalogWidgets();
-            }).bounds(mx + mw - 34, my + 48, 22, 16).build();
+            }).bounds(mx + mw - 34, my + 62, 22, 16).build();
             dynamicCatalogButtons.add(nextBtn);
             this.addRenderableWidget(nextBtn);
         }
@@ -939,7 +984,7 @@ public class MarketplaceScreen extends Screen {
             int itemIdx = startIndex + i;
             if (itemIdx < filtered.size()) {
                 var item = filtered.get(itemIdx);
-                int rowY = my + 68 + i * 32;
+                int rowY = my + 82 + i * 32;
                 int stock = item.stockCount();
 
                 int maxStack = 64;
@@ -1044,7 +1089,7 @@ public class MarketplaceScreen extends Screen {
             }
         }
         PacketDistributor.sendToServer(new ServerboundShopPurchasePayload(
-                shopId, slotIndex, count, true
+                shopId, slotIndex, count, true, useCompanyAccount
         ));
     }
 
@@ -1090,7 +1135,7 @@ public class MarketplaceScreen extends Screen {
             return;
         }
 
-        int mw = 400, mh = 240;
+        int mw = 400, mh = 260;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
@@ -1136,11 +1181,19 @@ public class MarketplaceScreen extends Screen {
         drawOutlinedBox(gg, mx, my, mw, mh, COLOR_BORDER_CYAN);
 
         // Header Panel
-        gg.fill(mx + 1, my + 1, mx + mw - 1, my + 24, COLOR_PANEL_HEADER);
-        gg.hLine(mx + 1, mx + mw - 1, my + 24, COLOR_BORDER_MUTED);
+        gg.fill(mx + 1, my + 1, mx + mw - 1, my + 22, COLOR_PANEL_HEADER);
+        gg.hLine(mx + 1, mx + mw - 1, my + 22, COLOR_BORDER_MUTED);
+
+        // Separator below 2nd row of tabs
+        gg.hLine(mx + 1, mx + mw - 1, my + 60, COLOR_BORDER_MUTED);
 
         gg.drawString(this.font, "§b✦ " + AmmoraLang.guiStr("market.title") + " ✦", mx + 10, my + 8, 0xFFFFFFFF);
-        String balStr = AmmoraLang.guiStr("market.header_balance_rank", String.format(Locale.US, "%.2f", data.balanceCbx()), data.repLevel());
+        String balStr;
+        if (useCompanyAccount && data.company() != null && data.company().hasCompany()) {
+            balStr = "§6🏢 " + String.format(Locale.US, "%.2f CBX", data.company().balanceCbx());
+        } else {
+            balStr = AmmoraLang.guiStr("market.header_balance_rank", String.format(Locale.US, "%.2f", data.balanceCbx()), data.repLevel());
+        }
         gg.drawString(this.font, balStr, mx + mw - this.font.width(balStr) - 10, my + 8, 0xFFFFFFFF);
 
         MarketplaceDataPayload.MarketplaceSlotItem hoveredCatalogItem = null;
@@ -1158,8 +1211,10 @@ public class MarketplaceScreen extends Screen {
         } else if (activeTab == 4) {
             renderQuestsTab(gg, mx, my, mw, mh);
         } else if (activeTab == 5) {
-            renderDeliveryBufferTab(gg, mx, my, mw, mh, mouseX, mouseY);
+            renderCompanyTab(gg, mx, my, mw, mh, mouseX, mouseY);
         } else if (activeTab == 6) {
+            renderDeliveryBufferTab(gg, mx, my, mw, mh, mouseX, mouseY);
+        } else if (activeTab == 7) {
             renderHistoryTab(gg, mx, my, mw, mh);
         }
 
@@ -1231,9 +1286,9 @@ public class MarketplaceScreen extends Screen {
 
         if (filterShopId != null && !filterShopId.isEmpty()) {
             String shopFilterTitle = AmmoraLang.guiStr("market.filter_shop_offers", truncate(filterShopName, 120), filtered.size());
-            gg.drawString(this.font, shopFilterTitle, mx + 212, my + 52, 0xFFFFFFFF);
+            gg.drawString(this.font, shopFilterTitle, mx + 212, my + 66, 0xFFFFFFFF);
         } else {
-            gg.drawString(this.font, AmmoraLang.guiStr("market.catalog_pages", (catalogPage + 1), totalPages, filtered.size()), mx + 160, my + 52, COLOR_TEXT_MUTED);
+            gg.drawString(this.font, AmmoraLang.guiStr("market.catalog_pages", (catalogPage + 1), totalPages, filtered.size()), mx + 160, my + 66, COLOR_TEXT_MUTED);
         }
 
         int startIndex = catalogPage * 5;
@@ -1241,7 +1296,7 @@ public class MarketplaceScreen extends Screen {
 
         for (int i = 0; i < 5; i++) {
             int idx = startIndex + i;
-            int rowY = my + 68 + i * 32;
+            int rowY = my + 82 + i * 32;
 
             if (idx < filtered.size()) {
                 var item = filtered.get(idx);
@@ -1280,12 +1335,12 @@ public class MarketplaceScreen extends Screen {
     private void renderShopsTab(GuiGraphics gg, int mx, int my, int mw, int mh) {
         var shops = data.shops();
         int totalPages = Math.max(1, (shops.size() + 4) / 5);
-        gg.drawString(this.font, AmmoraLang.guiStr("market.shops_online_header", shops.size(), (shopsPage + 1), totalPages), mx + 12, my + 52, 0xFFFFFFFF);
+        gg.drawString(this.font, AmmoraLang.guiStr("market.shops_online_header", shops.size(), (shopsPage + 1), totalPages), mx + 12, my + 66, 0xFFFFFFFF);
 
         int startIndex = shopsPage * 5;
         for (int i = 0; i < 5; i++) {
             int idx = startIndex + i;
-            int rowY = my + 68 + i * 32;
+            int rowY = my + 82 + i * 32;
 
             if (idx < shops.size()) {
                 var shop = shops.get(idx);
@@ -1307,14 +1362,14 @@ public class MarketplaceScreen extends Screen {
     private MarketplaceDataPayload.BuyRequestItem renderBuyRequestsTab(GuiGraphics gg, int mx, int my, int mw, int mh, int mouseX, int mouseY) {
         var reqs = data.buyRequests();
         int totalPages = Math.max(1, (reqs.size() + 3) / 4);
-        gg.drawString(this.font, AmmoraLang.guiStr("market.rfq_header", reqs.size(), (reqPage + 1), totalPages), mx + 12, my + 52, 0xFFFFFFFF);
+        gg.drawString(this.font, AmmoraLang.guiStr("market.rfq_header", reqs.size(), (reqPage + 1), totalPages), mx + 12, my + 66, 0xFFFFFFFF);
 
         int startIndex = reqPage * 4;
         MarketplaceDataPayload.BuyRequestItem hovered = null;
 
         for (int i = 0; i < 4; i++) {
             int idx = startIndex + i;
-            int rowY = my + 68 + i * 33;
+            int rowY = my + 82 + i * 33;
 
             if (idx < reqs.size()) {
                 var req = reqs.get(idx);
@@ -1373,12 +1428,12 @@ public class MarketplaceScreen extends Screen {
     private void renderQuestsTab(GuiGraphics gg, int mx, int my, int mw, int mh) {
         var quests = data.quests();
         int totalPages = Math.max(1, (quests.size() + 3) / 4);
-        gg.drawString(this.font, AmmoraLang.guiStr("market.quests_header", quests.size(), (questsPage + 1), totalPages), mx + 105, my + 52, 0xFFFFFFFF);
+        gg.drawString(this.font, AmmoraLang.guiStr("market.quests_header", quests.size(), (questsPage + 1), totalPages), mx + 105, my + 66, 0xFFFFFFFF);
 
         int startIndex = questsPage * 4;
         for (int i = 0; i < 4; i++) {
             int idx = startIndex + i;
-            int rowY = my + 70 + i * 38;
+            int rowY = my + 82 + i * 38;
 
             if (idx < quests.size()) {
                 var q = quests.get(idx);
@@ -1489,7 +1544,7 @@ public class MarketplaceScreen extends Screen {
         var deliveries = (data != null && data.deliveries() != null) ? data.deliveries() : List.<MarketplaceDataPayload.DeliveryBufferItem>of();
         int totalPages = Math.max(1, (deliveries.size() + 9) / 10);
 
-        gg.drawString(this.font, AmmoraLang.guiStr("market.buffer_header", deliveries.size(), (deliveryPage + 1), totalPages), mx + 12, my + 52, 0xFFFFFFFF);
+        gg.drawString(this.font, AmmoraLang.guiStr("market.buffer_header", deliveries.size(), (deliveryPage + 1), totalPages), mx + 12, my + 66, 0xFFFFFFFF);
 
         int startIndex = deliveryPage * 10;
         MarketplaceDataPayload.DeliveryBufferItem hoveredItem = null;
@@ -1498,7 +1553,7 @@ public class MarketplaceScreen extends Screen {
             int col = i % 2;
             int row = i / 2;
             int cardX = (col == 0) ? (mx + 10) : (mx + 204);
-            int cardY = my + 68 + row * 32;
+            int cardY = my + 82 + row * 32;
             int cardW = 186;
             int cardH = 28;
 
@@ -1557,12 +1612,12 @@ public class MarketplaceScreen extends Screen {
     private void renderHistoryTab(GuiGraphics gg, int mx, int my, int mw, int mh) {
         var txs = data.transactions();
         int totalPages = Math.max(1, (txs.size() + 4) / 5);
-        gg.drawString(this.font, AmmoraLang.guiStr("market.ledger_header", txs.size(), (txPage + 1), totalPages), mx + 12, my + 52, 0xFFFFFFFF);
+        gg.drawString(this.font, AmmoraLang.guiStr("market.ledger_header", txs.size(), (txPage + 1), totalPages), mx + 12, my + 66, 0xFFFFFFFF);
 
         int startIndex = txPage * 5;
         for (int i = 0; i < 5; i++) {
             int idx = startIndex + i;
-            int rowY = my + 68 + i * 32;
+            int rowY = my + 82 + i * 32;
 
             if (idx < txs.size()) {
                 var tx = txs.get(idx);
@@ -1594,10 +1649,10 @@ public class MarketplaceScreen extends Screen {
 
         // Page info in toolbar
         String pageStr = (auctionPage + 1) + "/" + totalPages;
-        gg.drawString(this.font, pageStr, mx + mw - 66 - this.font.width(pageStr), my + 52, COLOR_TEXT_MUTED);
+        gg.drawString(this.font, pageStr, mx + mw - 66 - this.font.width(pageStr), my + 66, COLOR_TEXT_MUTED);
 
         if (filtered.isEmpty()) {
-            gg.drawCenteredString(this.font, AmmoraLang.guiStr("auction.empty"), mx + mw / 2, my + 110, COLOR_TEXT_MUTED);
+            gg.drawCenteredString(this.font, AmmoraLang.guiStr("auction.empty"), mx + mw / 2, my + 130, COLOR_TEXT_MUTED);
             return null;
         }
 
@@ -1605,7 +1660,7 @@ public class MarketplaceScreen extends Screen {
         int startIndex = auctionPage * 4;
         for (int i = 0; i < 4; i++) {
             int aIdx = startIndex + i;
-            int cardY = my + 68 + i * 39;
+            int cardY = my + 82 + i * 39;
             int cardW = mw - 20;
             int cardX = mx + 10;
 
@@ -2035,7 +2090,7 @@ public class MarketplaceScreen extends Screen {
 
         // Click on preview item slot in RFQ footer opens search modal
         if (activeTab == 3) {
-            int mw = 400, mh = 240;
+            int mw = 400, mh = 260;
             int mx = (this.width - mw) / 2;
             int my = (this.height - mh) / 2;
             int footY = my + mh - 36;
@@ -2117,7 +2172,10 @@ public class MarketplaceScreen extends Screen {
                     || (bountyCountBox != null && bountyCountBox.isFocused())
                     || (auctionStartPriceBox != null && auctionStartPriceBox.isFocused())
                     || (auctionMinStepBox != null && auctionMinStepBox.isFocused())
-                    || (auctionBuyoutBox != null && auctionBuyoutBox.isFocused());
+                    || (auctionBuyoutBox != null && auctionBuyoutBox.isFocused())
+                    || (companyNameInput != null && companyNameInput.isFocused())
+                    || (companyAmountInput != null && companyAmountInput.isFocused())
+                    || (companyInviteInput != null && companyInviteInput.isFocused());
             if (!textFocused) {
                 this.onClose();
                 return true;
@@ -2125,6 +2183,263 @@ public class MarketplaceScreen extends Screen {
         }
 
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    private void initCompanyTab(int mx, int my, int mw, int mh) {
+        var comp = (data != null) ? data.company() : MarketplaceDataPayload.CompanyData.none();
+        if (comp == null || !comp.hasCompany()) {
+            // UNREGISTERED: Registration Card (widened to 360px so text fits without overflow)
+            int cardW = 360, cardH = 150;
+            int cx = mx + (mw - cardW) / 2;
+            int cy = my + 72;
+
+            companyNameInput = new EditBox(this.font, cx + 20, cy + 64, 206, 18, Component.literal(AmmoraLang.guiStr("company.name_hint")));
+            companyNameInput.setMaxLength(24);
+            companyNameInput.setValue(lastCompanyName);
+            companyNameInput.setResponder(v -> lastCompanyName = v);
+            this.addRenderableWidget(companyNameInput);
+
+            double fee = comp != null ? comp.registrationFee() : 500.0;
+            var regBtn = Button.builder(Component.literal(AmmoraLang.guiStr("company.btn_create")), b -> {
+                String name = companyNameInput.getValue().trim();
+                if (name.length() >= 3) {
+                    PacketDistributor.sendToServer(ServerboundCompanyActionPayload.register(name));
+                }
+            }).bounds(cx + 234, cy + 64, 106, 18)
+            .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.fee_notice", String.format(Locale.US, "%.2f", fee)))))
+            .build();
+            this.addRenderableWidget(regBtn);
+            return;
+        }
+
+        // REGISTERED
+        // Quick Amount box & Buttons in header bar
+        companyAmountInput = new EditBox(this.font, mx + mw - 190, my + 65, 56, 16, Component.literal("100.0"));
+        companyAmountInput.setMaxLength(10);
+        companyAmountInput.setValue(lastCompanyAmount);
+        companyAmountInput.setResponder(v -> lastCompanyAmount = v);
+        this.addRenderableWidget(companyAmountInput);
+
+        // Deposit Button (All members)
+        this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("company.btn_deposit")), b -> {
+            try {
+                double amt = Double.parseDouble(companyAmountInput.getValue().replace(',', '.'));
+                if (amt > 0) {
+                    PacketDistributor.sendToServer(ServerboundCompanyActionPayload.deposit(amt));
+                }
+            } catch (NumberFormatException ignored) {}
+        }).bounds(mx + mw - 130, my + 65, 58, 16).build());
+
+        // Withdraw Button (Owner & Manager)
+        if (!comp.isMember()) {
+            this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("company.btn_withdraw")), b -> {
+                try {
+                    double amt = Double.parseDouble(companyAmountInput.getValue().replace(',', '.'));
+                    if (amt > 0) {
+                        PacketDistributor.sendToServer(ServerboundCompanyActionPayload.withdraw(amt));
+                    }
+                } catch (NumberFormatException ignored) {}
+            }).bounds(mx + mw - 68, my + 65, 58, 16).build());
+        }
+
+        // Left Column: Team Roster
+        var members = comp.members();
+        int totalMemPages = Math.max(1, (members.size() + 2) / 3);
+        if (companyMemberPage > 0) {
+            this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
+                companyMemberPage--;
+                rebuildWidgets();
+            }).bounds(mx + 130, my + 90, 18, 14).build());
+        }
+        if (companyMemberPage < totalMemPages - 1) {
+            this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
+                companyMemberPage++;
+                rebuildWidgets();
+            }).bounds(mx + 152, my + 90, 18, 14).build());
+        }
+
+        // Member action buttons
+        int startMem = companyMemberPage * 3;
+        for (int i = 0; i < 3; i++) {
+            int idx = startMem + i;
+            if (idx < members.size()) {
+                var m = members.get(idx);
+                int cardY = my + 108 + i * 36;
+
+                if (comp.isOwner() && !m.playerUuid().equals(comp.ownerUuid())) {
+                    boolean isManager = "MANAGER".equalsIgnoreCase(m.role());
+                    String roleToggleIcon = isManager ? "§7👤" : "§b👔";
+                    String roleToggleTip = isManager ? AmmoraLang.guiStr("company.demote_tooltip") : AmmoraLang.guiStr("company.promote_tooltip");
+
+                    this.addRenderableWidget(Button.builder(Component.literal(roleToggleIcon), b -> {
+                        String newRole = isManager ? "MEMBER" : "MANAGER";
+                        PacketDistributor.sendToServer(ServerboundCompanyActionPayload.setRole(m.playerUuid(), newRole));
+                    }).bounds(mx + 138, cardY + 7, 20, 18)
+                    .tooltip(Tooltip.create(Component.literal(roleToggleTip)))
+                    .build());
+
+                    this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
+                        PacketDistributor.sendToServer(ServerboundCompanyActionPayload.kick(m.playerUuid()));
+                    }).bounds(mx + 160, cardY + 7, 20, 18)
+                    .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.kick_tooltip"))))
+                    .build());
+                }
+            }
+        }
+
+        // Bottom Left: Invite (Owner) or Leave (Member)
+        if (comp.isOwner()) {
+            companyInviteInput = new EditBox(this.font, mx + 10, my + 230, 88, 16, Component.literal(AmmoraLang.guiStr("company.invite_hint")));
+            companyInviteInput.setMaxLength(16);
+            companyInviteInput.setValue(lastCompanyInvite);
+            companyInviteInput.setResponder(v -> lastCompanyInvite = v);
+            this.addRenderableWidget(companyInviteInput);
+
+            this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("company.btn_invite")), b -> {
+                String inv = companyInviteInput.getValue().trim();
+                if (!inv.isEmpty()) {
+                    PacketDistributor.sendToServer(ServerboundCompanyActionPayload.invite(inv));
+                    companyInviteInput.setValue("");
+                    lastCompanyInvite = "";
+                }
+            }).bounds(mx + 102, my + 230, 44, 16).build());
+
+            this.addRenderableWidget(Button.builder(Component.literal("§c⚠"), b -> {
+                PacketDistributor.sendToServer(ServerboundCompanyActionPayload.dissolve());
+            }).bounds(mx + 150, my + 230, 30, 16)
+            .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.dissolve_tooltip"))))
+            .build());
+        } else {
+            this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("company.btn_leave")), b -> {
+                PacketDistributor.sendToServer(ServerboundCompanyActionPayload.leave());
+            }).bounds(mx + 10, my + 230, 170, 16).build());
+        }
+
+        // Right Column: Audit Ledger pagination
+        var ledger = comp.ledger();
+        int totalLedgerPages = Math.max(1, (ledger.size() + 4) / 5);
+        if (companyLedgerPage > 0) {
+            this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
+                companyLedgerPage--;
+                rebuildWidgets();
+            }).bounds(mx + mw - 54, my + 90, 18, 14).build());
+        }
+        if (companyLedgerPage < totalLedgerPages - 1) {
+            this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
+                companyLedgerPage++;
+                rebuildWidgets();
+            }).bounds(mx + mw - 32, my + 90, 18, 14).build());
+        }
+    }
+
+    private void renderCompanyTab(GuiGraphics gg, int mx, int my, int mw, int mh, int mouseX, int mouseY) {
+        var comp = (data != null) ? data.company() : MarketplaceDataPayload.CompanyData.none();
+        if (comp == null || !comp.hasCompany()) {
+            // UNREGISTERED: Registration Card (widened to 360px so text fits cleanly)
+            int cardW = 360, cardH = 150;
+            int cx = mx + (mw - cardW) / 2;
+            int cy = my + 72;
+
+            gg.fill(cx, cy, cx + cardW, cy + cardH, COLOR_PANEL);
+            drawOutlinedBox(gg, cx, cy, cardW, cardH, COLOR_BORDER_CYAN);
+
+            gg.drawCenteredString(this.font, "§6§l" + AmmoraLang.guiStr("company.register_title"), cx + cardW / 2, cy + 14, 0xFFFFFFFF);
+            gg.drawCenteredString(this.font, "§7" + AmmoraLang.guiStr("company.register_desc1"), cx + cardW / 2, cy + 30, 0xFFFFFFFF);
+            gg.drawCenteredString(this.font, "§8" + AmmoraLang.guiStr("company.register_desc2"), cx + cardW / 2, cy + 42, 0xFFFFFFFF);
+
+            double fee = comp != null ? comp.registrationFee() : 500.0;
+            gg.drawString(this.font, "§e" + AmmoraLang.guiStr("company.fee_label", String.format(Locale.US, "%.2f", fee)), cx + 20, cy + 96, 0xFFFFFFFF);
+            return;
+        }
+
+        // REGISTERED: Top Info Bar
+        gg.fill(mx + 10, my + 62, mx + mw - 10, my + 84, COLOR_PANEL);
+        drawOutlinedBox(gg, mx + 10, my + 62, mw - 20, 22, COLOR_BORDER_MUTED);
+
+        String roleTag = comp.isOwner() ? "§6👑 " + AmmoraLang.guiStr("company.role_owner")
+                : (comp.isManager() ? "§b👔 " + AmmoraLang.guiStr("company.role_manager") : "§7👤 " + AmmoraLang.guiStr("company.role_member"));
+
+        String compHeader = "§6🏢 " + comp.companyName() + " §8| " + roleTag + " §8| §e" + String.format(Locale.US, "%.2f CBX", comp.balanceCbx());
+        gg.drawString(this.font, compHeader, mx + 16, my + 69, 0xFFFFFFFF);
+
+        // Left: Team Roster
+        int leftX = mx + 10;
+        int leftW = 175;
+        gg.drawString(this.font, "§b👥 " + AmmoraLang.guiStr("company.members_title", comp.members().size()), leftX + 2, my + 92, 0xFFFFFFFF);
+
+        var members = comp.members();
+        int startMem = companyMemberPage * 3;
+        for (int i = 0; i < 3; i++) {
+            int idx = startMem + i;
+            int cardY = my + 108 + i * 36;
+            if (idx < members.size()) {
+                var m = members.get(idx);
+                gg.fill(leftX, cardY, leftX + leftW, cardY + 32, COLOR_PANEL);
+                drawOutlinedBox(gg, leftX, cardY, leftW, 32, COLOR_BORDER_MUTED);
+
+                String memRole = "OWNER".equalsIgnoreCase(m.role()) ? "§6👑" : ("MANAGER".equalsIgnoreCase(m.role()) ? "§b👔" : "§7👤");
+                gg.drawString(this.font, memRole + " §f" + truncate(m.playerName(), 70), leftX + 4, cardY + 5, 0xFFFFFFFF);
+
+                String limStr = "OWNER".equalsIgnoreCase(m.role()) ? "§8" + AmmoraLang.guiStr("company.limit_unlimited")
+                        : String.format(Locale.US, "§7%.0f/%.0f", m.spentTodayCbx(), m.dailyLimitCbx());
+                gg.drawString(this.font, "§8" + AmmoraLang.guiStr("company.spend_label") + ": " + limStr, leftX + 4, cardY + 18, 0xFFFFFFFF);
+            } else {
+                gg.fill(leftX, cardY, leftX + leftW, cardY + 32, 0x33080D16);
+            }
+        }
+
+        // Right: Financial Audit Ledger
+        int rightX = mx + 195;
+        int rightW = mw - 205;
+        gg.drawString(this.font, "§b📜 " + AmmoraLang.guiStr("company.ledger_title"), rightX + 2, my + 92, 0xFFFFFFFF);
+
+        var ledger = comp.ledger();
+        int startLedger = companyLedgerPage * 5;
+        MarketplaceDataPayload.CompanyLedgerItem hoveredEntry = null;
+
+        for (int i = 0; i < 5; i++) {
+            int idx = startLedger + i;
+            int rowY = my + 108 + i * 23;
+            if (idx < ledger.size()) {
+                var l = ledger.get(idx);
+                boolean hovered = (mouseX >= rightX && mouseX <= rightX + rightW && mouseY >= rowY && mouseY <= rowY + 21);
+                if (hovered) hoveredEntry = l;
+
+                gg.fill(rightX, rowY, rightX + rightW, rowY + 21, hovered ? 0x66182333 : COLOR_PANEL);
+                drawOutlinedBox(gg, rightX, rowY, rightW, 21, COLOR_BORDER_MUTED);
+
+                String timeStr = TIME_FMT.format(new Date(l.timestamp()));
+                String actionTag = switch (l.actionType()) {
+                    case "REGISTRATION" -> "§cREG";
+                    case "DEPOSIT" -> "§aDEP";
+                    case "WITHDRAW" -> "§cWTH";
+                    case "TRANSFER_IN" -> "§a+TR";
+                    case "TRANSFER_OUT" -> "§c-TR";
+                    case "SHOP_REVENUE" -> "§a+SH";
+                    case "DOCK_REVENUE" -> "§a+DK";
+                    case "DOCK_EXPENSE" -> "§c-DK";
+                    case "MARKET_BUY" -> "§eBUY";
+                    case "AUCTION_BUY" -> "§eAUC";
+                    default -> "§7" + l.actionType();
+                };
+
+                String amtStr = (l.amountCbx() > 0) ? String.format(Locale.US, "%.1f", l.amountCbx()) : "";
+                gg.drawString(this.font, "§8" + timeStr + " " + actionTag + " §f" + truncate(l.playerName(), 45), rightX + 4, rowY + 3, 0xFFFFFFFF);
+                gg.drawString(this.font, "§e" + amtStr, rightX + rightW - this.font.width(amtStr) - 4, rowY + 3, 0xFFFFFFFF);
+                gg.drawString(this.font, "§8" + truncate(l.description(), 160), rightX + 4, rowY + 12, 0xFFFFFFFF);
+            } else {
+                gg.fill(rightX, rowY, rightX + rightW, rowY + 21, 0x22080D16);
+            }
+        }
+
+        if (hoveredEntry != null) {
+            List<Component> tip = new ArrayList<>();
+            tip.add(Component.literal("§6" + hoveredEntry.actionType() + " §8| §f" + String.format(Locale.US, "%.2f CBX", hoveredEntry.amountCbx())));
+            tip.add(Component.literal("§7" + AmmoraLang.guiStr("company.actor") + ": §f" + hoveredEntry.playerName()));
+            tip.add(Component.literal("§7" + AmmoraLang.guiStr("company.info") + ": §e" + hoveredEntry.description()));
+            tip.add(Component.literal("§8" + new Date(hoveredEntry.timestamp())));
+            gg.renderComponentTooltip(this.font, tip, mouseX, mouseY);
+        }
     }
 
     private void drawOutlinedBox(GuiGraphics gg, int x, int y, int w, int h, int color) {

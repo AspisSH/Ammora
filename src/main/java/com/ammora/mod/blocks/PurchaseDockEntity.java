@@ -37,6 +37,15 @@ public class PurchaseDockEntity extends BlockEntity {
     private int transferSpeedTicks = 20; // 1 second interval when powered continuously
     private boolean lastPowered = false;
 
+    // Corporate link
+    private UUID companyId = null;
+    private String companyName = "";
+
+    public UUID getCompanyId() { return companyId; }
+    public void setCompanyId(UUID companyId) { this.companyId = companyId; setChanged(); }
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName != null ? companyName : ""; setChanged(); }
+
     private final ItemStackHandler inventory = new ItemStackHandler(9) {
         @Override
         protected void onContentsChanged(int slot) {
@@ -146,7 +155,7 @@ public class PurchaseDockEntity extends BlockEntity {
 
         try {
             MarketManager.MarketTransactionResult result = marketManager.executeAutomatedPurchase(
-                    ownerUuid, ownerName, targetResourceId, batchSize, maxBuyPrice
+                    ownerUuid, ownerName, companyId, targetResourceId, batchSize, maxBuyPrice
             );
 
             if (!result.success()) {
@@ -195,6 +204,10 @@ public class PurchaseDockEntity extends BlockEntity {
             tag.putUUID("OwnerUUID", ownerUuid);
         }
         tag.putString("OwnerName", ownerName);
+        if (companyId != null) {
+            tag.putUUID("CompanyUUID", companyId);
+        }
+        tag.putString("CompanyName", companyName != null ? companyName : "");
     }
 
     @Override
@@ -217,6 +230,14 @@ public class PurchaseDockEntity extends BlockEntity {
         }
         if (tag.contains("OwnerName")) {
             this.ownerName = tag.getString("OwnerName");
+        }
+        if (tag.hasUUID("CompanyUUID")) {
+            this.companyId = tag.getUUID("CompanyUUID");
+        } else {
+            this.companyId = null;
+        }
+        if (tag.contains("CompanyName")) {
+            this.companyName = tag.getString("CompanyName");
         }
     }
 }

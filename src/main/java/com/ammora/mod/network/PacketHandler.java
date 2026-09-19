@@ -293,6 +293,19 @@ public class PacketHandler {
                     }
                 })
         );
+
+        // ----------------------------------------------------
+        // Client to Server: Corporate Accounts Domain
+        // ----------------------------------------------------
+        registrar.playToServer(
+                ServerboundCompanyActionPayload.TYPE,
+                ServerboundCompanyActionPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer serverPlayer) {
+                        CompanyPacketHandler.handleCompanyAction(serverPlayer, payload);
+                    }
+                })
+        );
     }
 
     // ----------------------------------------------------

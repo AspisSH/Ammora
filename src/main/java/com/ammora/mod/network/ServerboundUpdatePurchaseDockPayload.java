@@ -15,8 +15,13 @@ public record ServerboundUpdatePurchaseDockPayload(
         BlockPos pos,
         String targetResourceId,
         int batchSize,
-        double maxBuyPrice
+        double maxBuyPrice,
+        boolean toggleCompanyLink
 ) implements CustomPacketPayload {
+
+    public ServerboundUpdatePurchaseDockPayload(BlockPos pos, String targetResourceId, int batchSize, double maxBuyPrice) {
+        this(pos, targetResourceId, batchSize, maxBuyPrice, false);
+    }
 
     public static final Type<ServerboundUpdatePurchaseDockPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(AmmoraMod.MODID, "update_purchase_dock"));
@@ -31,7 +36,8 @@ public record ServerboundUpdatePurchaseDockPayload(
                 buf.readBlockPos(),
                 buf.readUtf(),
                 buf.readVarInt(),
-                buf.readDouble()
+                buf.readDouble(),
+                buf.readBoolean()
         );
     }
 
@@ -40,6 +46,7 @@ public record ServerboundUpdatePurchaseDockPayload(
         buf.writeUtf(targetResourceId != null ? targetResourceId : "");
         buf.writeVarInt(batchSize);
         buf.writeDouble(maxBuyPrice);
+        buf.writeBoolean(toggleCompanyLink);
     }
 
     @Override

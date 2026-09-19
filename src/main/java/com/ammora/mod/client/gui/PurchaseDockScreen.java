@@ -99,6 +99,29 @@ public class PurchaseDockScreen extends Screen {
         int rightX = mx + 140;
         int rightW = mw - 148;
 
+        // Corporate Billing toggle in header
+        int compBtnW = 100;
+        int compBtnX = mx + mw - compBtnW - 80;
+        boolean linked = data.isCompanyLinked();
+        String compName = (data.companyName() != null && !data.companyName().isEmpty()) ? data.companyName() : AmmoraLang.guiStr("account.company");
+        if (this.font.width(compName) > 60) {
+            compName = this.font.plainSubstrByWidth(compName, 52) + "..";
+        }
+        String compBtnText = (linked ? "§6🏢 " : "§7👤 ") + compName;
+        this.addRenderableWidget(Button.builder(Component.literal(compBtnText), b -> {
+            PacketDistributor.sendToServer(new ServerboundUpdatePurchaseDockPayload(
+                    data.pos(),
+                    selectedResourceId,
+                    selectedBatchSize,
+                    selectedMaxBuyPrice,
+                    true
+            ));
+        }).bounds(compBtnX, my + 4, compBtnW, 16)
+        .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                linked ? AmmoraLang.guiStr("dock.billing_company_tooltip", data.companyName()) : AmmoraLang.guiStr("dock.billing_personal_tooltip")
+        )))
+        .build());
+
         // Resource selection buttons on the left
         int resY = my + 38;
         if (data.availableResources() != null) {
