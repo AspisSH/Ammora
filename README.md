@@ -21,15 +21,18 @@ No more infinite money from automated iron or gold farms: prices continuously re
 - **Synthetic Commodity Accounts (OMS)**: Speculate on raw material prices (gold, diamonds, netherite) without needing physical chests or vault space. Track real-time PnL and daily carry fees.
 - **Server-Side Limit Orders**: Place `BUY_LIMIT` and `SELL_LIMIT` orders. The server automatically fills orders as prices fluctuate, storing items in an offline buffer if needed.
 - **Futures & Delivery Contracts**: Accept time-sensitive supply contracts with guaranteed prices, collateral escrow, and reputation rewards.
-- **Rust-Style Player Vending Machines**: Deploy customizable in-world shops with 5–10 showcase slots, capacity upgrades (up to 1,024 items/slot), satellite uplink modules, and local/remote drone shopping.
-- **Marketplace Tablet & RFQ Escrow**: Global handheld trading tablet featuring player-created Requests for Quotation (RFQ) with escrow protection, community quests/bounties, and an unclaimed delivery buffer.
+- **Rust-Style Player Vending Machines**: Deploy customizable in-world shops with 5–10 showcase slots, capacity upgrades (up to 1,024 items/slot), satellite uplink modules, and corporate treasury linking.
+- **Marketplace Tablet & RFQ Escrow**: 8-tab handheld trading center: global catalog, shops directory, live auctions, RFQ buy orders with escrow, community quests, company management, delivery buffer, and history ledger.
+- **Corporations & Joint Accounts**: Found organizations with shared treasury pools, a 3-tier permission model (`OWNER`, `MANAGER`, `MEMBER`), manager daily spending allowances, and immutable transaction audit ledgers. Toggle personal vs company accounts with 1 click across tablets, shops, and cold wallets.
+- **Live Real-Time Auctions**: Host timed lots with incremental bidding, anti-sniping protection (+60s in closing minutes), instant buyout, and escrow collateral holds.
+- **Courier Bee Deliveries**: Visualized physical delivery with a courier bee flying items directly into player hands (with automatic safe buffering in SQLite if offline or inventory is full).
 - **Secure P2P Direct Trading**: 2-player synchronized escrow trade windows with Anti-Scam safeguards (lock timers, auto-unlock on offer changes, balance checks).
-- **Cold Wallet & Proximity Transfers**: Portable NFC wallet with nearby player detection, instant 0-fee transfers, and a 30-day transaction history ledger.
+- **Cold Wallet & Proximity Transfers**: Portable NFC wallet with nearby player detection, instant 0-fee transfers, corporate account switching, and a 30-day transaction history ledger.
 - **Create & CC:Tweaked Integration**: 
   - **Create**: Kinetic rotational speed scales dock trading frequency; Display Links project live quotes onto flapped display boards; interactive 3D Ponder scenes included.
   - **CC: Tweaked**: Full Lua peripheral API to build algorithmic trading bots, automated arbitrage routers, and wall-mounted stock tickers.
 - **Data-Driven & Datapack Support**: Easily add custom commodities, configure delivery contracts, or trigger dynamic market events via standard Minecraft datapacks (`data/ammora/...`).
-- **Operator Console & Audit (/ammora admin)**: Complete management GUI for server administrators: inspect and adjust player balances, trigger macroeconomic events and crises, tune AMM bonding curves, and audit full transaction ledgers.
+- **Operator Console & Audit (/ammora admin)**: Complete management GUI for server administrators: inspect and adjust player balances, set global company registration fees, trigger macroeconomic events and crises, tune AMM bonding curves, and audit full transaction ledgers.
 
 ---
 
@@ -76,11 +79,11 @@ Selling surplus goods beyond $S_{max}$ charges the player a waste processing fee
 | Block / Item | Description |
 | :--- | :--- |
 | **Exchange Terminal** | Main trading workstation with real-time candlestick charts, order book, OMS management, limit orders, contracts, and redstone output. |
-| **Trade Dock** | High-speed item import/export automation interface. Connects to hoppers, belts, and funnels. Compatible with Create kinetic shafts. |
-| **Purchase Dock** | Automated resource buyer. Transits items from the exchange into local inventory whenever spot price satisfies Stop-High guards. |
-| **Player Shop** | Rust-style vending machine block. Supports custom prices, stock upgrades, and satellite broadcasting. |
-| **Cold Wallet** | Handheld biometric device for CBX account balance, ledger history, and wireless P2P player-to-player transfers. |
-| **Marketplace Tablet**| Remote marketplace tablet for catalog shopping, RFQ escrow orders, community quest bounties, and delivery buffer claims. |
+| **Trade Dock** | High-speed item import/export automation interface. Connects to hoppers, belts, and funnels. Compatible with Create kinetic shafts and corporate accounts (Shift+RMB). |
+| **Purchase Dock** | Automated resource buyer. Transits items from the exchange into local inventory with Stop-High price guards and personal/corporate billing toggle. |
+| **Player Shop** | Rust-style vending machine block. Supports custom prices, stock upgrades, satellite broadcasting, and automatic revenue routing to corporate treasury. |
+| **Cold Wallet** | Handheld biometric device for CBX account balance, ledger history, personal/corporate account toggle, and wireless P2P player-to-player transfers. |
+| **Marketplace Tablet**| Remote marketplace tablet with 8 tabs: catalog shopping, shops directory, live auctions, RFQ escrow orders, community quests, company management, and courier bee deliveries. |
 
 ---
 

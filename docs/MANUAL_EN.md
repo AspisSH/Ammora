@@ -19,6 +19,9 @@ Welcome to **Ammora** — a mod that transforms the Minecraft economy into a dyn
    - [Cold Wallet](#24-cold-wallet)
    - [Player Vending Machine](#25-player-vending-machine)
    - [Market Tablet & Global Marketplace](#26-market-tablet--global-marketplace)
+   - [Live Auction House](#27-live-auction-house)
+   - [Corporations & Joint Accounts](#28-corporations--joint-accounts)
+   - [Courier Bee Delivery](#29-courier-bee-delivery)
 3. [Create Mod Integration](#3-create-mod-integration)
    - [Kinetic Dock Acceleration](#31-kinetic-dock-acceleration)
    - [Display Link: Live Quotes on Flap Boards](#32-display-link-live-quotes-on-flap-boards)
@@ -28,7 +31,7 @@ Welcome to **Ammora** — a mod that transforms the Minecraft economy into a dyn
    - [Automated Trading Bots](#43-automated-trading-bots)
 5. [Operator & Admin Console (/ammora admin)](#5-operator--admin-console-ammora-admin)
    - [Security & Access](#51-security--access)
-   - [Balances Management](#52-balances-management)
+   - [Balances & Economy Settings](#52-balances--economy-settings)
    - [Economic Events](#53-economic-events)
    - [AMM Rates & Reserve Calibration](#54-amm-rates--reserve-calibration)
    - [Transaction Audit Logs](#55-transaction-audit-logs)
@@ -111,17 +114,20 @@ Automated item import and export interface:
 - Connects directly to hoppers, belts, and funnels.
 - Set a **Stop-Loss Price** to protect against market crashes.
 - Items piped in are automatically sold, crediting the owner's CBX balance.
+- **Corporate Account Routing:** Toggle billing between your personal account and your corporation treasury.
 
 ### 2.3. Purchase Dock
 Automated resource buyer:
 - Select a target commodity and batch size (1, 4, 8, 16, 32, 64).
 - Set a **Stop-High Guard** (available to Broker rank and higher).
 - Automatically draws items from the exchange into adjacent chests whenever prices are favorable.
+- **Corporate Account Billing:** Fund automated purchases directly from corporate reserves.
 
 ### 2.4. Cold Wallet
 Handheld biometric NFC wallet:
 - Check account balance and reputation rank anywhere.
 - Wireless P2P transfers to players within 30 blocks.
+- **Account Switcher:** Seamlessly toggle between `[Personal]` and `[🏢 Corporation]` accounts to audit or transfer corporate funds (available to Owners and Managers).
 - 30-day transaction history ledger.
 
 ### 2.5. Player Vending Machine
@@ -129,13 +135,43 @@ In-world vending shop block:
 - Up to 10 independent showcase slots with individual CBX pricing.
 - Upgradable slot capacities (64 → 128 → 256 → 512 → 1,024 items).
 - Install a Satellite Uplink module to broadcast stock globally to the Marketplace Tablet.
+- **Corporate Link:** Bind the vending machine to your registered Corporation (`/ammora shop link-company <id>` or in the owner UI). When linked, customer purchases bypass offline restrictions and **automatically credit the corporate treasury** directly.
 
 ### 2.6. Market Tablet & Global Marketplace
 Handheld digital marketplace:
-- Remote shopping from broadcasted player vending machines.
-- **RFQ Escrow Bounties**: Post public buy requests with escrow funds.
-- **Community Quests**: Post jobs, work assignments, and custom task bounties.
-- **Delivery Buffer**: 10-slot safe storage buffer for goods received while offline or when inventory was full.
+- **Two-Tier 8-Tab Navigation:** High-resolution expanded terminal layout featuring 8 distinct tabs:
+  - `[🛒 Shop]`: Browse remote player vending machines with live search and category filters.
+  - `[🔨 Auctions]`: Real-time multiplayer bidding and instant buyouts.
+  - `[📋 Bounties]`: Public buy requests funded with escrow CBX.
+  - `[📜 Quests]`: Community tasks and work assignments.
+  - `[📦 Deliveries]`: 10-slot safe storage buffer for goods received while offline or full inventory.
+  - `[🏢 Corporation]`: Company hub, employee management, daily limits, and financial ledger.
+  - `[📈 Exchange]`: Remote access to the live AMM commodity exchange.
+  - `[⚙ Settings]`: Preferences and telemetry settings.
+- **Account Switcher:** Header toggle `[Personal] / [🏢 Corporation]` allows buying goods, funding bounties, or placing bids using company treasury funds.
+
+### 2.7. Live Auction House
+Real-time multiplayer competitive bidding system integrated into the Market Tablet:
+- **Escrow-Backed Bidding:** Placing a bid locks the required CBX in server escrow. If outbid, the funds are instantly refunded to the player or corporate balance.
+- **Instant Buyout (`Buyout Price`):** Sellers can specify an optional instant buyout price. Paying this price immediately terminates the auction and awards the lot.
+- **Anti-Sniping Protection:** Bids placed in the final 60 seconds automatically extend the auction countdown by +60 seconds, preventing last-second bid sniping.
+- **Lot Creation Modal:** List any held item by specifying a starting bid, optional buyout price, and auction duration (e.g., 1 hour, 6 hours, 24 hours).
+
+### 2.8. Corporations & Joint Accounts
+Create business entities, share capital, and delegate enterprise operations:
+- **Company Registration:** Open the `[🏢 Corporation]` tab on your Market Tablet. Players pay a registration fee in CBX (calibrated by server operators) to establish a new registered corporation.
+- **Role Hierarchy:**
+  - `OWNER`: Full administrative control, employee invitations/expulsions, role promotions, budget limit management, and treasury withdrawals.
+  - `MANAGER`: Authorized to spend company funds up to a configurable daily spending limit (`daily_limit`), link machines, and execute purchasing contracts. Cannot invite new members or promote staff.
+  - `MEMBER`: View corporate financial metrics, audit transaction history, and participate in corporate projects without access to direct treasury withdrawals.
+- **Daily Manager Limit:** Owners can enforce per-manager spending quotas that reset every 24 real hours, protecting company assets from overspending.
+- **Full Audit Ledger:** Every deposit, withdrawal, automated dock transfer, and tablet purchase is logged in the company ledger with exact timestamps and member attribution.
+- **Full Automation Integration:** Trade Docks, Purchase Docks, Player Shops, and Cold Wallets can all be linked to corporate accounts.
+
+### 2.9. Courier Bee Delivery
+Physical drone delivery mechanic with fail-safe buffering:
+- When a remote purchase is confirmed on the Market Tablet, an autonomous **Courier Bee** spawns in the world and flies directly to the buyer's coordinates.
+- **Fail-Safe Fallback:** If the player is offline, across dimensions, or obstructed, items are safely routed to the **Deliveries Buffer** tab in the Market Tablet, where they can be claimed anytime.
 
 ---
 
@@ -166,7 +202,7 @@ Ammora provides server operators with a secure, graphical command center to moni
 - **Permission:** Operator permission level 2+ (`source.hasPermission(2)`). Non-operators cannot execute the command or access GUI payloads.
 - Critical operations are logged to the dedicated server console.
 
-### 5.2. Balances Management
+### 5.2. Balances & Economy Settings
 - **Search:** Search all server player accounts by username or string UUID.
 - **Account Inspection:** View real-time balance in CBX, reputation tier (Lvl I–V), REP points, and UUID.
 - **Actions:**
@@ -176,6 +212,7 @@ Ammora provides server operators with a secure, graphical command center to moni
   - `[Wipe]`: Reset account balance to 0.00 CBX.
   - **Quick Presets:** Instant `[+100]`, `[+500]`, `[+1000]` reward shortcuts.
 - **Notifications:** Online players immediately receive a personal system message notifying them of balance adjustments.
+- **Corporation Registration Fee Calibration:** At the top of the Balances tab, operators can inspect and configure the global cost to establish a new company (`[Set Fee]`). Changes are saved immediately to the server configuration.
 
 ### 5.3. Economic Events
 - **Active Event Card:** When an event is active, a golden banner displays the event title, days remaining, and modifier details.
