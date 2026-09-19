@@ -182,6 +182,16 @@ public class PacketHandler {
                 })
         );
 
+        registrar.playToServer(
+                ServerboundLoanActionPayload.TYPE,
+                ServerboundLoanActionPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer serverPlayer) {
+                        WalletPacketHandler.handleLoanAction(serverPlayer, payload);
+                    }
+                })
+        );
+
         // ----------------------------------------------------
         // Client to Server: Player Shop Domain
         // ----------------------------------------------------

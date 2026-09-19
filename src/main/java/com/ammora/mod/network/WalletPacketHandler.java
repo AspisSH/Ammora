@@ -7,11 +7,21 @@ import com.ammora.mod.core.MarketResource;
 import com.ammora.mod.core.TradeSessionManager;
 import com.ammora.mod.db.PlayerAccount;
 import com.ammora.mod.util.AmmoraLang;
+import com.ammora.mod.db.LoanRecord;
+import com.ammora.mod.core.P2PTransfer;
+import com.ammora.mod.entity.CourierBeeEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -81,6 +91,36 @@ public final class WalletPacketHandler {
                 }
             } catch (Exception ignored) {}
 
+            // Process any server-wide expired loans before querying
+            processExpiredLoans(player.server);
+
+            // Load active/recent loans
+            List<ColdWalletDataPayload.LoanItem> loanItems = new ArrayList<>();
+            try {
+                List<LoanRecord> rawLoans = AmmoraMod.getMarketDAO().getPlayerLoans(player.getUUID());
+                for (LoanRecord l : rawLoans) {
+                    boolean isBorrower = l.getBorrowerUuid().equals(player.getUUID());
+                    loanItems.add(new ColdWalletDataPayload.LoanItem(
+                            l.getLoanId(),
+                            l.getLenderUuid(),
+                            l.getLenderName(),
+                            l.getBorrowerUuid(),
+                            l.getBorrowerName(),
+                            l.getPrincipalCbx(),
+                            l.getInterestRate(),
+                            l.getTotalRepayCbx(),
+                            l.getItemId(),
+                            l.getItemNbt(),
+                            l.getDisplayName(),
+                            l.getItemCount(),
+                            l.getCreatedAt(),
+                            l.getExpiresAt(),
+                            l.getStatus(),
+                            isBorrower
+                    ));
+                }
+            } catch (Exception ignored) {}
+
             ColdWalletDataPayload payload = new ColdWalletDataPayload(
                     MarketEngine.round2(acc.getBalanceCbx()),
                     acc.getRepLevel(),
@@ -94,7 +134,8 @@ public final class WalletPacketHandler {
                     compRole,
                     compBal,
                     compLimit,
-                    compSpent
+                    compSpent,
+                    loanItems
             );
             PacketDistributor.sendToPlayer(player, payload);
 
@@ -339,6 +380,143 @@ public final class WalletPacketHandler {
         } catch (Exception e) {
             AmmoraMod.LOGGER.error("Failed to update purchase dock", e);
             sendPurchaseDockData(player, pos, AmmoraLang.notify("dock_error", e.getMessage()), true);
+        }
+    }
+
+    public static void handleLoanAction(ServerPlayer player, ServerboundLoanActionPayload payload) {
+        if (AmmoraMod.getMarketDAO() == null) return;
+        String action = payload.action();
+        String loanId = payload.loanId();
+
+        try {
+            LoanRecord loan = AmmoraMod.getMarketDAO().getLoan(loanId);
+            if (loan == null) {
+                sendColdWalletData(player, "key:wallet.loan_not_found", true);
+                return;
+            }
+
+            if ("REPAY".equalsIgnoreCase(action)) {
+                if (!loan.isActive()) {
+                    sendColdWalletData(player, "key:wallet.loan_not_active", true);
+                    return;
+                }
+                if (!loan.getBorrowerUuid().equals(player.getUUID())) {
+                    sendColdWalletData(player, "key:wallet.loan_not_borrower", true);
+                    return;
+                }
+
+                PlayerAccount borrowerAcc = AmmoraMod.getMarketDAO().getAccount(player.getUUID(), player.getName().getString());
+                if (borrowerAcc.getBalanceCbx() < loan.getTotalRepayCbx()) {
+                    sendColdWalletData(player, "key:wallet.notif_err_insufficient_funds", true);
+                    return;
+                }
+
+                // Deduct from borrower
+                borrowerAcc.withdraw(loan.getTotalRepayCbx());
+                AmmoraMod.getMarketDAO().saveAccount(borrowerAcc);
+
+                // Deposit to lender (handled whether lender is online or offline)
+                PlayerAccount lenderAcc = AmmoraMod.getMarketDAO().getAccount(loan.getLenderUuid(), loan.getLenderName());
+                lenderAcc.deposit(loan.getTotalRepayCbx());
+                AmmoraMod.getMarketDAO().saveAccount(lenderAcc);
+
+                // Record transfer in ledger
+                AmmoraMod.getMarketDAO().recordP2PTransfer(new P2PTransfer(
+                        UUID.randomUUID().toString(),
+                        player.getUUID(),
+                        player.getName().getString(),
+                        loan.getLenderUuid(),
+                        loan.getLenderName(),
+                        loan.getTotalRepayCbx(),
+                        System.currentTimeMillis()
+                ));
+
+                // Mark loan as REPAID
+                AmmoraMod.getMarketDAO().updateLoanStatus(loan.getLoanId(), "REPAID");
+
+                // Return collateral item to borrower via Courier Bee (or fallback)
+                ItemStack collateral = reconstructItemStack(loan, player.serverLevel());
+                if (!collateral.isEmpty()) {
+                    CourierBeeEntity.dispatchToPlayer(player, collateral);
+                }
+
+                // Sound and feedback
+                String formattedRepay = String.format(java.util.Locale.US, "%.1f CBX", loan.getTotalRepayCbx());
+                player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.9F, 1.2F);
+                sendColdWalletData(player, AmmoraLang.notify("wallet.loan_repaid_success", loan.getLenderName(), formattedRepay), false);
+
+                // Notify lender if online
+                ServerPlayer lenderPlayer = player.server.getPlayerList().getPlayer(loan.getLenderUuid());
+                if (lenderPlayer != null) {
+                    lenderPlayer.sendSystemMessage(Component.translatable("message.ammora.loan.repaid_lender", player.getName().getString(), formattedRepay));
+                    lenderPlayer.level().playSound(null, lenderPlayer.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+                }
+            } else if ("CLAIM_COLLATERAL".equalsIgnoreCase(action)) {
+                if (!loan.isDefaulted()) {
+                    sendColdWalletData(player, "key:wallet.loan_not_defaulted", true);
+                    return;
+                }
+                if (!loan.getLenderUuid().equals(player.getUUID())) {
+                    sendColdWalletData(player, "key:wallet.loan_not_lender", true);
+                    return;
+                }
+
+                ItemStack collateral = reconstructItemStack(loan, player.serverLevel());
+                if (!collateral.isEmpty()) {
+                    CourierBeeEntity.dispatchToPlayer(player, collateral);
+                }
+                sendColdWalletData(player, AmmoraLang.notify("wallet.loan_claimed_success", loan.getBorrowerName()), false);
+            }
+        } catch (Exception e) {
+            AmmoraMod.LOGGER.error("Failed to handle loan action " + action + " for " + loanId, e);
+            sendColdWalletData(player, "key:wallet.error_loan_generic", true);
+        }
+    }
+
+    public static ItemStack reconstructItemStack(LoanRecord loan, net.minecraft.server.level.ServerLevel level) {
+        ItemStack stack = ItemStack.EMPTY;
+        if (loan.getItemNbt() != null && !loan.getItemNbt().isEmpty() && level != null) {
+            try {
+                CompoundTag tag = TagParser.parseTag(loan.getItemNbt());
+                stack = ItemStack.parseOptional(level.registryAccess(), tag);
+            } catch (Exception ignored) {}
+        }
+        if (stack.isEmpty()) {
+            try {
+                Item it = BuiltInRegistries.ITEM.get(ResourceLocation.parse(loan.getItemId()));
+                if (it != Items.AIR) {
+                    stack = new ItemStack(it, loan.getItemCount());
+                }
+            } catch (Exception ignored) {}
+        }
+        return stack;
+    }
+
+    public static void processExpiredLoans(net.minecraft.server.MinecraftServer server) {
+        if (AmmoraMod.getMarketDAO() == null || server == null) return;
+        try {
+            List<LoanRecord> expired = AmmoraMod.getMarketDAO().getExpiredActiveLoans();
+            for (LoanRecord loan : expired) {
+                AmmoraMod.getMarketDAO().updateLoanStatus(loan.getLoanId(), "DEFAULTED");
+
+                ServerPlayer lender = server.getPlayerList().getPlayer(loan.getLenderUuid());
+                ItemStack collateral = reconstructItemStack(loan, server.overworld());
+                if (!collateral.isEmpty()) {
+                    if (lender != null) {
+                        CourierBeeEntity.dispatchToPlayer(lender, collateral);
+                        lender.sendSystemMessage(Component.translatable("message.ammora.loan.defaulted_lender", loan.getBorrowerName(), loan.getDisplayName()));
+                    } else {
+                        CourierBeeEntity.saveFallbackToBuffer(collateral, loan.getLenderUuid(), server.registryAccess());
+                    }
+                }
+
+                ServerPlayer borrower = server.getPlayerList().getPlayer(loan.getBorrowerUuid());
+                if (borrower != null) {
+                    borrower.sendSystemMessage(Component.translatable("message.ammora.loan.defaulted_borrower", loan.getLenderName(), loan.getDisplayName()));
+                }
+            }
+        } catch (Exception e) {
+            AmmoraMod.LOGGER.error("Failed to process expired loans", e);
         }
     }
 }

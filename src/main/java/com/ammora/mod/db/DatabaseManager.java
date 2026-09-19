@@ -451,6 +451,30 @@ public class DatabaseManager {
                     config_value TEXT NOT NULL
                 );
             """);
+
+            // P2P Secured Collateral Loans (Pawn shop)
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS p2p_loans (
+                    loan_id TEXT PRIMARY KEY,
+                    lender_uuid TEXT NOT NULL,
+                    lender_name TEXT NOT NULL,
+                    borrower_uuid TEXT NOT NULL,
+                    borrower_name TEXT NOT NULL,
+                    principal_cbx REAL NOT NULL,
+                    interest_rate REAL NOT NULL,
+                    total_repay_cbx REAL NOT NULL,
+                    item_id TEXT NOT NULL,
+                    item_nbt TEXT,
+                    display_name TEXT NOT NULL,
+                    item_count INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    expires_at INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'ACTIVE'
+                );
+            """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_loans_status ON p2p_loans (status, expires_at);");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_loans_borrower ON p2p_loans (borrower_uuid, status);");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_loans_lender ON p2p_loans (lender_uuid, status);");
         }
     }
 }

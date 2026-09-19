@@ -28,8 +28,34 @@ public record ClientboundTradeSyncPayload(
         boolean myConfirmed,
         boolean partnerConfirmed,
         String statusMessage,
-        boolean isErrorMessage
+        boolean isErrorMessage,
+        boolean isLoanMode,
+        boolean isPlayerALender,
+        double interestRate,
+        int durationHours,
+        double totalRepayAmount
 ) implements CustomPacketPayload {
+
+    public ClientboundTradeSyncPayload(
+            boolean activeSession,
+            boolean isPlayerA,
+            String myName,
+            String partnerName,
+            double myMoney,
+            double partnerMoney,
+            List<ItemStack> myItems,
+            List<ItemStack> partnerItems,
+            boolean myLocked,
+            boolean partnerLocked,
+            boolean myConfirmed,
+            boolean partnerConfirmed,
+            String statusMessage,
+            boolean isErrorMessage
+    ) {
+        this(activeSession, isPlayerA, myName, partnerName, myMoney, partnerMoney, myItems, partnerItems,
+                myLocked, partnerLocked, myConfirmed, partnerConfirmed, statusMessage, isErrorMessage,
+                false, true, 15.0, 24, 0.0);
+    }
 
     public static final Type<ClientboundTradeSyncPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(AmmoraMod.MODID, "trade_sync"));
@@ -55,7 +81,12 @@ public record ClientboundTradeSyncPayload(
                 buf.readBoolean(),
                 buf.readBoolean(),
                 buf.readUtf(),
-                buf.readBoolean()
+                buf.readBoolean(),
+                buf.readBoolean(),
+                buf.readBoolean(),
+                buf.readDouble(),
+                buf.readVarInt(),
+                buf.readDouble()
         );
     }
 
@@ -74,6 +105,11 @@ public record ClientboundTradeSyncPayload(
         buf.writeBoolean(partnerConfirmed);
         buf.writeUtf(statusMessage != null ? statusMessage : "");
         buf.writeBoolean(isErrorMessage);
+        buf.writeBoolean(isLoanMode);
+        buf.writeBoolean(isPlayerALender);
+        buf.writeDouble(interestRate);
+        buf.writeVarInt(durationHours);
+        buf.writeDouble(totalRepayAmount);
     }
 
     private static List<ItemStack> readItemStacks(RegistryFriendlyByteBuf buf) {

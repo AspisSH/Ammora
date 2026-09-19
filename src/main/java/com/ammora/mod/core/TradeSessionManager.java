@@ -134,6 +134,14 @@ public class TradeSessionManager {
             session.toggleLock(player);
         } else if ("CONFIRM".equalsIgnoreCase(action)) {
             session.confirmTrade(player);
+        } else if ("SET_TRADE_MODE".equalsIgnoreCase(action)) {
+            session.setTradeMode(player, payload.slotIndex() == 1);
+        } else if ("SET_LOAN_ROLE".equalsIgnoreCase(action)) {
+            session.setLoanRole(player, payload.slotIndex() == 1);
+        } else if ("SET_INTEREST_RATE".equalsIgnoreCase(action)) {
+            session.setInterestRate(player, payload.amount());
+        } else if ("SET_LOAN_DURATION".equalsIgnoreCase(action)) {
+            session.setLoanDuration(player, (int) payload.amount());
         } else if ("CANCEL".equalsIgnoreCase(action)) {
             session.cancel(player.server, "key:trade.cancelled_by;" + player.getName().getString());
             cleanupSession(sessionId, session);

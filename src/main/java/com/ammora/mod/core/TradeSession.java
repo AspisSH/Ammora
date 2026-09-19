@@ -1,9 +1,11 @@
 package com.ammora.mod.core;
 
 import com.ammora.mod.AmmoraMod;
+import com.ammora.mod.db.LoanRecord;
 import com.ammora.mod.db.PlayerAccount;
 import com.ammora.mod.network.ClientboundTradeSyncPayload;
 import com.ammora.mod.network.PacketHandler;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -51,6 +53,49 @@ public class TradeSession {
 
     private boolean finished = false;
 
+    // P2P Loan mode state
+    private boolean isLoanMode = false;
+    private boolean isPlayerALender = true;
+    private double interestRate = 15.0;
+    private int durationHours = 24;
+
+    public synchronized void setTradeMode(ServerPlayer player, boolean loanMode) {
+        if (finished) return;
+        if (this.isLoanMode != loanMode) {
+            this.isLoanMode = loanMode;
+            onOfferModified(loanMode ? "key:trade.status_mode_loan" : "key:trade.status_mode_trade");
+        }
+    }
+
+    public synchronized void setLoanRole(ServerPlayer player, boolean becomeLender) {
+        if (finished) return;
+        boolean isA = player.getUUID().equals(playerAUuid);
+        boolean newALender = isA ? becomeLender : !becomeLender;
+        if (this.isPlayerALender != newALender) {
+            this.isPlayerALender = newALender;
+            String lenderName = newALender ? playerAName : playerBName;
+            onOfferModified("key:trade.status_role_changed;" + lenderName);
+        }
+    }
+
+    public synchronized void setInterestRate(ServerPlayer player, double rate) {
+        if (finished) return;
+        double rounded = Math.max(0.0, Math.min(1000.0, MarketEngine.round2(rate)));
+        if (Math.abs(this.interestRate - rounded) > 0.01) {
+            this.interestRate = rounded;
+            onOfferModified("key:trade.status_rate_changed;" + rounded);
+        }
+    }
+
+    public synchronized void setLoanDuration(ServerPlayer player, int hours) {
+        if (finished) return;
+        int clamped = Math.max(1, Math.min(720, hours));
+        if (this.durationHours != clamped) {
+            this.durationHours = clamped;
+            onOfferModified("key:trade.status_duration_changed;" + clamped);
+        }
+    }
+
     public TradeSession(UUID sessionId, ServerPlayer a, ServerPlayer b) {
         this.sessionId = sessionId;
         this.playerAUuid = a.getUUID();
@@ -96,6 +141,24 @@ public class TradeSession {
         ItemStack[] targetSlots = player.getUUID().equals(playerAUuid) ? itemsA : itemsB;
         int toTransfer = count > 0 ? Math.min(count, invStack.getCount()) : invStack.getCount();
         if (toTransfer <= 0) return;
+
+        if (isLoanMode) {
+            boolean isLender = player.getUUID().equals(playerAUuid) ? isPlayerALender : !isPlayerALender;
+            if (isLender) {
+                return;
+            }
+            if (!targetSlots[0].isEmpty()) {
+                sendSync(player, "key:trade.status_grid_full", true);
+                return;
+            }
+            targetSlots[0] = invStack.split(toTransfer);
+            if (invStack.isEmpty()) {
+                player.getInventory().setItem(invSlot, ItemStack.EMPTY);
+            }
+            String playerName = player.getUUID().equals(playerAUuid) ? playerAName : playerBName;
+            onOfferModified("key:trade.status_item_added;" + playerName);
+            return;
+        }
 
         int remaining = toTransfer;
 
@@ -228,6 +291,11 @@ public class TradeSession {
             return;
         }
 
+        if (isLoanMode) {
+            executeLoan(server, pA, pB);
+            return;
+        }
+
         // Validate money balances
         try {
             PlayerAccount accA = AmmoraMod.getMarketDAO().getAccount(playerAUuid, playerAName);
@@ -307,6 +375,120 @@ public class TradeSession {
         } catch (SQLException e) {
             org.slf4j.LoggerFactory.getLogger("Ammora").error("Failed to execute P2P trade session", e);
             cancel(server, "Database error: " + e.getMessage());
+        }
+    }
+
+    private void executeLoan(MinecraftServer server, ServerPlayer pA, ServerPlayer pB) {
+        ServerPlayer lender = isPlayerALender ? pA : pB;
+        ServerPlayer borrower = isPlayerALender ? pB : pA;
+        double principal = isPlayerALender ? moneyA : moneyB;
+        ItemStack[] borrowerItems = isPlayerALender ? itemsB : itemsA;
+
+        if (principal <= 0.0) {
+            confirmedA = confirmedB = false;
+            syncBoth("key:trade.status_loan_no_money", true);
+            return;
+        }
+
+        // Find collateral item in borrower's offered items
+        ItemStack collateral = ItemStack.EMPTY;
+        int collateralSlot = -1;
+        for (int i = 0; i < SLOTS_COUNT; i++) {
+            if (!borrowerItems[i].isEmpty()) {
+                collateral = borrowerItems[i];
+                collateralSlot = i;
+                break;
+            }
+        }
+
+        if (collateral.isEmpty()) {
+            confirmedA = confirmedB = false;
+            syncBoth("key:trade.status_loan_no_collateral", true);
+            return;
+        }
+
+        try {
+            PlayerAccount lenderAcc = AmmoraMod.getMarketDAO().getAccount(lender.getUUID(), lender.getName().getString());
+            if (principal > lenderAcc.getBalanceCbx()) {
+                confirmedA = confirmedB = false;
+                syncBoth("key:trade.status_insufficient_cbx;" + lender.getName().getString() + ";" + principal + " CBX", true);
+                return;
+            }
+
+            double totalRepay = MarketEngine.round2(principal * (1.0 + (interestRate / 100.0)));
+            long now = System.currentTimeMillis();
+            long expiresAt = now + ((long) durationHours * 3600000L);
+
+            String itemNbt = "";
+            try {
+                net.minecraft.nbt.Tag t = collateral.saveOptional(server.registryAccess());
+                if (t != null) itemNbt = t.getAsString();
+            } catch (Exception ignored) {}
+
+            String itemId = BuiltInRegistries.ITEM.getKey(collateral.getItem()).toString();
+            String displayName = collateral.getHoverName().getString();
+            int count = collateral.getCount();
+
+            String loanId = UUID.randomUUID().toString();
+            LoanRecord loan = new LoanRecord(
+                    loanId,
+                    lender.getUUID(),
+                    lender.getName().getString(),
+                    borrower.getUUID(),
+                    borrower.getName().getString(),
+                    principal,
+                    interestRate,
+                    totalRepay,
+                    itemId,
+                    itemNbt,
+                    displayName,
+                    count,
+                    now,
+                    expiresAt,
+                    "ACTIVE"
+            );
+
+            // Execute loan transfer atomically
+            finished = true;
+
+            // 1. Transfer principal money from lender to borrower
+            lenderAcc.withdraw(principal);
+            PlayerAccount borrowerAcc = AmmoraMod.getMarketDAO().getAccount(borrower.getUUID(), borrower.getName().getString());
+            borrowerAcc.deposit(principal);
+            AmmoraMod.getMarketDAO().saveAccount(lenderAcc);
+            AmmoraMod.getMarketDAO().saveAccount(borrowerAcc);
+            AmmoraMod.getMarketDAO().recordP2PTransfer(new P2PTransfer(
+                    UUID.randomUUID().toString(), lender.getUUID(), lender.getName().getString(),
+                    borrower.getUUID(), borrower.getName().getString(), principal, now
+            ));
+
+            // 2. Persist loan to SQLite
+            AmmoraMod.getMarketDAO().saveLoan(loan);
+
+            // 3. Clear collateral item so it stays in escrow and isn't returned
+            borrowerItems[collateralSlot] = ItemStack.EMPTY;
+
+            // 4. Return any unused offered items back to respective players
+            returnOrBufferItems(server, playerAUuid, pA, itemsA);
+            returnOrBufferItems(server, playerBUuid, pB, itemsB);
+            Arrays.fill(itemsA, ItemStack.EMPTY);
+            Arrays.fill(itemsB, ItemStack.EMPTY);
+
+            // 5. Sound & notifications
+            pA.level().playSound(null, pA.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.9F, 1.2F);
+            pB.level().playSound(null, pB.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.9F, 1.2F);
+
+            String formattedPrincipal = String.format(java.util.Locale.US, "%.1f CBX", principal);
+            String formattedTotal = String.format(java.util.Locale.US, "%.1f CBX", totalRepay);
+            lender.sendSystemMessage(Component.translatable("gui.ammora.trade.loan_success_lender", formattedPrincipal, borrower.getName().getString(), formattedTotal));
+            borrower.sendSystemMessage(Component.translatable("gui.ammora.trade.loan_success_borrower", formattedPrincipal, lender.getName().getString(), formattedTotal));
+
+            // Close client screens
+            PacketDistributor.sendToPlayer(pA, createPayload(true, "key:trade.status_loan_created", false, false));
+            PacketDistributor.sendToPlayer(pB, createPayload(false, "key:trade.status_loan_created", false, false));
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger("Ammora").error("Failed to execute loan", e);
+            cancel(server, "key:trade.status_loan_failed");
         }
     }
 
@@ -407,6 +589,9 @@ public class TradeSession {
             partnerItems.add(partArr[i] != null ? partArr[i].copy() : ItemStack.EMPTY);
         }
 
+        double principal = isPlayerALender ? moneyA : moneyB;
+        double totalRepay = MarketEngine.round2(principal * (1.0 + (interestRate / 100.0)));
+
         return new ClientboundTradeSyncPayload(
                 active,
                 forPlayerA,
@@ -421,7 +606,12 @@ public class TradeSession {
                 forPlayerA ? confirmedA : confirmedB,
                 forPlayerA ? confirmedB : confirmedA,
                 msg,
-                isErr
+                isErr,
+                isLoanMode,
+                isPlayerALender,
+                interestRate,
+                durationHours,
+                totalRepay
         );
     }
 

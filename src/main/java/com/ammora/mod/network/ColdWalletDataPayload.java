@@ -27,8 +27,28 @@ public record ColdWalletDataPayload(
         String companyRole,
         double companyBalance,
         double companyDailyLimit,
-        double companySpentToday
+        double companySpentToday,
+        List<LoanItem> loans
 ) implements CustomPacketPayload {
+
+    public ColdWalletDataPayload(
+            double balanceCbx,
+            int repLevel,
+            int repPoints,
+            List<NearbyPlayerItem> nearbyPlayers,
+            List<LedgerItem> ledgerEntries,
+            String statusMessage,
+            boolean isError,
+            boolean hasCompany,
+            String companyName,
+            String companyRole,
+            double companyBalance,
+            double companyDailyLimit,
+            double companySpentToday
+    ) {
+        this(balanceCbx, repLevel, repPoints, nearbyPlayers, ledgerEntries, statusMessage, isError,
+                hasCompany, companyName, companyRole, companyBalance, companyDailyLimit, companySpentToday, List.of());
+    }
 
     public ColdWalletDataPayload(
             double balanceCbx,
@@ -39,7 +59,8 @@ public record ColdWalletDataPayload(
             String statusMessage,
             boolean isError
     ) {
-        this(balanceCbx, repLevel, repPoints, nearbyPlayers, ledgerEntries, statusMessage, isError, false, "", "", 0.0, 0.0, 0.0);
+        this(balanceCbx, repLevel, repPoints, nearbyPlayers, ledgerEntries, statusMessage, isError,
+                false, "", "", 0.0, 0.0, 0.0, List.of());
     }
 
     public static final Type<ColdWalletDataPayload> TYPE =
@@ -57,6 +78,25 @@ public record ColdWalletDataPayload(
             return amountCbx();
         }
     }
+
+    public record LoanItem(
+            String loanId,
+            UUID lenderUuid,
+            String lenderName,
+            UUID borrowerUuid,
+            String borrowerName,
+            double principalCbx,
+            double interestRate,
+            double totalRepayCbx,
+            String itemId,
+            String itemNbt,
+            String displayName,
+            int itemCount,
+            long createdAt,
+            long expiresAt,
+            String status,
+            boolean isBorrower
+    ) {}
 
     @Deprecated
     public double balanceUsdt() {
@@ -77,7 +117,8 @@ public record ColdWalletDataPayload(
                 buf.readUtf(),
                 buf.readDouble(),
                 buf.readDouble(),
-                buf.readDouble()
+                buf.readDouble(),
+                readLoans(buf)
         );
     }
 
@@ -95,6 +136,32 @@ public record ColdWalletDataPayload(
         List<LedgerItem> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             list.add(new LedgerItem(buf.readUtf(), buf.readUtf(), buf.readDouble(), buf.readLong()));
+        }
+        return list;
+    }
+
+    private static List<LoanItem> readLoans(FriendlyByteBuf buf) {
+        int size = buf.readVarInt();
+        List<LoanItem> list = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            list.add(new LoanItem(
+                    buf.readUtf(),
+                    buf.readUUID(),
+                    buf.readUtf(),
+                    buf.readUUID(),
+                    buf.readUtf(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readUtf(),
+                    buf.readUtf(),
+                    buf.readUtf(),
+                    buf.readVarInt(),
+                    buf.readLong(),
+                    buf.readLong(),
+                    buf.readUtf(),
+                    buf.readBoolean()
+            ));
         }
         return list;
     }
@@ -127,6 +194,28 @@ public record ColdWalletDataPayload(
         buf.writeDouble(companyBalance);
         buf.writeDouble(companyDailyLimit);
         buf.writeDouble(companySpentToday);
+
+        buf.writeVarInt(loans != null ? loans.size() : 0);
+        if (loans != null) {
+            for (LoanItem loan : loans) {
+                buf.writeUtf(loan.loanId());
+                buf.writeUUID(loan.lenderUuid());
+                buf.writeUtf(loan.lenderName());
+                buf.writeUUID(loan.borrowerUuid());
+                buf.writeUtf(loan.borrowerName());
+                buf.writeDouble(loan.principalCbx());
+                buf.writeDouble(loan.interestRate());
+                buf.writeDouble(loan.totalRepayCbx());
+                buf.writeUtf(loan.itemId());
+                buf.writeUtf(loan.itemNbt() != null ? loan.itemNbt() : "");
+                buf.writeUtf(loan.displayName());
+                buf.writeVarInt(loan.itemCount());
+                buf.writeLong(loan.createdAt());
+                buf.writeLong(loan.expiresAt());
+                buf.writeUtf(loan.status());
+                buf.writeBoolean(loan.isBorrower());
+            }
+        }
     }
 
     @Override

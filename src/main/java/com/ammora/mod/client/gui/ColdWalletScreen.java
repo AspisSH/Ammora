@@ -4,6 +4,7 @@ import com.ammora.mod.core.MarketEngine;
 import com.ammora.mod.util.AmmoraLang;
 import com.ammora.mod.client.ClientPacketHandler;
 import com.ammora.mod.network.ColdWalletDataPayload;
+import com.ammora.mod.network.ServerboundLoanActionPayload;
 import com.ammora.mod.network.ServerboundP2PTransferPayload;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -12,10 +13,14 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -26,8 +31,12 @@ public class ColdWalletScreen extends Screen {
 
     private ColdWalletDataPayload data;
 
-    // Tabs: 0 = P2P Transfers, 1 = Ledger History
+    // Tabs: 0 = P2P Transfers, 1 = Ledger History, 2 = Loans
     private int activeTab = 0;
+
+    // Loans State
+    private int loanSubTab = 0; // 0 = Borrowed, 1 = Lent
+    private int loanPage = 0;
 
     // P2P State
     private UUID selectedRecipientUuid;
@@ -113,8 +122,8 @@ public class ColdWalletScreen extends Screen {
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
-        // Tab switcher buttons
-        int tabW = 100;
+        // Tab switcher buttons: 3 tabs
+        int tabW = 76;
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 0 ? AmmoraLang.guiStr("wallet.tab_p2p_active") : AmmoraLang.guiStr("wallet.tab_p2p_inactive")),
                 b -> {
@@ -129,12 +138,21 @@ public class ColdWalletScreen extends Screen {
                     activeTab = 1;
                     rebuildWidgets();
                 }
-        ).bounds(mx + 112, my + 26, tabW, 16).build());
+        ).bounds(mx + 88, my + 26, tabW, 16).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(activeTab == 2 ? AmmoraLang.guiStr("wallet.tab_loans_active") : AmmoraLang.guiStr("wallet.tab_loans_inactive")),
+                b -> {
+                    activeTab = 2;
+                    loanPage = 0;
+                    rebuildWidgets();
+                }
+        ).bounds(mx + 168, my + 26, tabW, 16).build());
 
         // Incoming Trade Invite banner in tab row if active
         if (incomingInviteUuid != null) {
-            int invX = mx + 216;
-            int invW = mw - 224; // 160 px
+            int invX = mx + 248;
+            int invW = mw - 256;
             this.addRenderableWidget(Button.builder(Component.literal("§a🤝 " + incomingInviteName), b -> {
                 PacketDistributor.sendToServer(new com.ammora.mod.network.ServerboundTradeInviteResponsePayload(incomingInviteUuid, true));
                 ClientPacketHandler.clearPendingTradeInvite();
@@ -173,6 +191,8 @@ public class ColdWalletScreen extends Screen {
 
         if (activeTab == 0) {
             initP2PTab(mx, my, mw, mh);
+        } else if (activeTab == 2) {
+            initLoansTab(mx, my, mw, mh);
         }
     }
 
@@ -334,8 +354,10 @@ public class ColdWalletScreen extends Screen {
 
         if (activeTab == 0) {
             renderP2PTab(g, mx, my, mw, mh);
-        } else {
+        } else if (activeTab == 1) {
             renderLedgerTab(g, mx, my, mw, mh);
+        } else {
+            renderLoansTab(g, mx, my, mw, mh, mouseX, mouseY);
         }
 
         super.render(g, mouseX, mouseY, partialTick);
@@ -351,9 +373,21 @@ public class ColdWalletScreen extends Screen {
         g.drawString(this.font, "§6§l" + com.ammora.mod.util.AmmoraLang.guiStr("wallet.nearby_players"), leftX, my + 48, 0xFFFFFFFF);
 
         if (data.nearbyPlayers() == null || data.nearbyPlayers().isEmpty()) {
-            g.drawString(this.font, "§8" + com.ammora.mod.util.AmmoraLang.guiStr("wallet.no_nearby"), leftX, my + 66, COLOR_TEXT_MUTED);
-            g.drawString(this.font, AmmoraLang.guiStr("wallet.p2p_radius"), leftX, my + 78, COLOR_TEXT_MUTED);
-            g.drawString(this.font, AmmoraLang.guiStr("wallet.enter_name_hint"), leftX, my + 94, COLOR_BORDER_CYAN);
+            int curTextY = my + 66;
+            for (var line : this.font.split(Component.literal("§8" + AmmoraLang.guiStr("wallet.no_nearby")), leftW)) {
+                g.drawString(this.font, line, leftX, curTextY, COLOR_TEXT_MUTED);
+                curTextY += 11;
+            }
+            curTextY += 1;
+            for (var line : this.font.split(Component.literal(AmmoraLang.guiStr("wallet.p2p_radius")), leftW)) {
+                g.drawString(this.font, line, leftX, curTextY, COLOR_TEXT_MUTED);
+                curTextY += 11;
+            }
+            curTextY += 3;
+            for (var line : this.font.split(Component.literal(AmmoraLang.guiStr("wallet.enter_name_hint")), leftW)) {
+                g.drawString(this.font, line, leftX, curTextY, COLOR_BORDER_CYAN);
+                curTextY += 11;
+            }
         }
 
         // Right section: Transfer controls
@@ -481,6 +515,243 @@ public class ColdWalletScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    private void initLoansTab(int mx, int my, int mw, int mh) {
+        int leftX = mx + 8;
+        int subTabW = 86;
+        // SubTab 0: Borrowed
+        this.addRenderableWidget(Button.builder(
+                Component.literal((loanSubTab == 0 ? "§6▶ " : "") + AmmoraLang.guiStr("wallet.loans_borrowed")),
+                b -> {
+                    loanSubTab = 0;
+                    loanPage = 0;
+                    rebuildWidgets();
+                }
+        ).bounds(leftX, my + 46, subTabW, 15).build());
+
+        // SubTab 1: Lent
+        this.addRenderableWidget(Button.builder(
+                Component.literal((loanSubTab == 1 ? "§6▶ " : "") + AmmoraLang.guiStr("wallet.loans_lent")),
+                b -> {
+                    loanSubTab = 1;
+                    loanPage = 0;
+                    rebuildWidgets();
+                }
+        ).bounds(leftX + subTabW + 4, my + 46, subTabW, 15).build());
+
+        List<ColdWalletDataPayload.LoanItem> filtered = getFilteredLoans();
+        int pageSize = 3;
+        int maxPage = Math.max(0, (filtered.size() - 1) / pageSize);
+        if (loanPage > maxPage) loanPage = maxPage;
+
+        // Pagination buttons
+        if (maxPage > 0) {
+            int navW = 20;
+            this.addRenderableWidget(Button.builder(Component.literal("<"), b -> {
+                if (loanPage > 0) {
+                    loanPage--;
+                    rebuildWidgets();
+                }
+            }).bounds(mx + mw - 52, my + 46, navW, 15).build());
+
+            this.addRenderableWidget(Button.builder(Component.literal(">"), b -> {
+                if (loanPage < maxPage) {
+                    loanPage++;
+                    rebuildWidgets();
+                }
+            }).bounds(mx + mw - 28, my + 46, navW, 15).build());
+        }
+
+        // Action buttons on visible cards
+        int startIdx = loanPage * pageSize;
+        int endIdx = Math.min(startIdx + pageSize, filtered.size());
+        int cardH = 46;
+        int startY = my + 65;
+
+        for (int i = startIdx; i < endIdx; i++) {
+            var loan = filtered.get(i);
+            int cardY = startY + ((i - startIdx) * (cardH + 4));
+            int btnX = mx + mw - 76;
+            int btnY = cardY + 13;
+            int btnW = 60;
+            int btnH = 20;
+
+            if (loanSubTab == 0 && "ACTIVE".equalsIgnoreCase(loan.status())) {
+                // Repay button for Borrower
+                this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("wallet.btn_repay")), b -> {
+                    PacketDistributor.sendToServer(new ServerboundLoanActionPayload("REPAY", loan.loanId()));
+                    this.statusNotification = AmmoraLang.guiStr("wallet.loan_repaying");
+                    this.statusNotificationError = false;
+                    this.notificationExpireTime = System.currentTimeMillis() + 4500L;
+                }).bounds(btnX, btnY, btnW, btnH)
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                        AmmoraLang.guiStr("trade.total_repay_lbl", String.format(Locale.US, "%.1f CBX", loan.totalRepayCbx()))
+                )))
+                .build());
+            } else if (loanSubTab == 1 && "DEFAULTED".equalsIgnoreCase(loan.status())) {
+                // Claim button for Lender
+                this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("wallet.btn_claim")), b -> {
+                    PacketDistributor.sendToServer(new ServerboundLoanActionPayload("CLAIM_COLLATERAL", loan.loanId()));
+                }).bounds(btnX, btnY, btnW, btnH).build());
+            }
+        }
+    }
+
+    private void renderLoansTab(GuiGraphics g, int mx, int my, int mw, int mh, int mouseX, int mouseY) {
+        List<ColdWalletDataPayload.LoanItem> filtered = getFilteredLoans();
+        int pageSize = 3;
+        int maxPage = Math.max(0, (filtered.size() - 1) / pageSize);
+        if (loanPage > maxPage) loanPage = maxPage;
+
+        // Page indicator text
+        if (maxPage > 0) {
+            String pageStr = AmmoraLang.guiStr("wallet.loan_page", loanPage + 1, maxPage + 1);
+            g.drawString(this.font, pageStr, mx + mw - 60 - this.font.width(pageStr), my + 50, 0xFFFFFFFF);
+        }
+
+        if (filtered.isEmpty()) {
+            g.drawCenteredString(this.font, AmmoraLang.guiStr("wallet.no_loans"), mx + mw / 2, my + 110, COLOR_TEXT_MUTED);
+            renderStatusNotification(g, mx + 8, mw - 16, my + mh - 26);
+            return;
+        }
+
+        int startIdx = loanPage * pageSize;
+        int endIdx = Math.min(startIdx + pageSize, filtered.size());
+        int cardH = 46;
+        int startY = my + 65;
+
+        ItemStack hoveredStack = ItemStack.EMPTY;
+
+        for (int i = startIdx; i < endIdx; i++) {
+            var loan = filtered.get(i);
+            int cardX = mx + 8;
+            int cardW = mw - 16;
+            int cardY = startY + ((i - startIdx) * (cardH + 4));
+
+            int borderCol = "ACTIVE".equalsIgnoreCase(loan.status())
+                    ? COLOR_AMBER
+                    : ("REPAID".equalsIgnoreCase(loan.status()) ? COLOR_GREEN : COLOR_RED);
+
+            g.fill(cardX, cardY, cardX + cardW, cardY + cardH, COLOR_PANEL);
+            renderBorder(g, cardX, cardY, cardW, cardH, borderCol);
+
+            // Collateral Item Box
+            int itemBoxX = cardX + 5;
+            int itemBoxY = cardY + 5;
+            int itemBoxSize = 36;
+            boolean itemHovered = mouseX >= itemBoxX && mouseX < itemBoxX + itemBoxSize && mouseY >= itemBoxY && mouseY < itemBoxY + itemBoxSize;
+
+            g.fill(itemBoxX, itemBoxY, itemBoxX + itemBoxSize, itemBoxY + itemBoxSize, itemHovered ? 0x44FFAA00 : 0xFF192230);
+            renderBorder(g, itemBoxX, itemBoxY, itemBoxSize, itemBoxSize, itemHovered ? COLOR_BORDER_CYAN : COLOR_BORDER_MUTED);
+
+            ItemStack st = reconstructLoanStack(loan);
+            if (!st.isEmpty()) {
+                g.renderItem(st, itemBoxX + 10, itemBoxY + 10);
+                g.renderItemDecorations(this.font, st, itemBoxX + 10, itemBoxY + 10);
+                if (itemHovered) {
+                    hoveredStack = st;
+                }
+            }
+
+            // Info rows
+            int textX = cardX + 46;
+            // Row 1: Item display name
+            String displayName = loan.displayName();
+            if (loan.itemCount() > 1) displayName += " x" + loan.itemCount();
+            if (this.font.width(displayName) > 170) {
+                displayName = this.font.plainSubstrByWidth(displayName, 164) + "..";
+            }
+            g.drawString(this.font, "§f§l" + displayName, textX, cardY + 6, 0xFFFFFFFF);
+
+            // Row 2: Counterparty
+            String cp = (loanSubTab == 0)
+                    ? AmmoraLang.guiStr("wallet.loan_lender", "§e" + loan.lenderName())
+                    : AmmoraLang.guiStr("wallet.loan_borrower", "§b" + loan.borrowerName());
+            g.drawString(this.font, "§7" + cp, textX, cardY + 18, 0xFFFFFFFF);
+
+            // Row 3: Financials
+            String fin = AmmoraLang.guiStr("wallet.loan_card_fin",
+                    String.format(Locale.US, "%.1f", loan.principalCbx()),
+                    String.format(Locale.US, "%.0f", loan.interestRate()),
+                    String.format(Locale.US, "%.1f", loan.totalRepayCbx())
+            );
+            if (this.font.width(fin) > 190) {
+                fin = this.font.plainSubstrByWidth(fin, 184) + "..";
+            }
+            g.drawString(this.font, fin, textX, cardY + 30, 0xFFFFFFFF);
+
+            // Status Badge / Countdown Timer
+            int badgeX = cardX + cardW - 146;
+            if ("REPAID".equalsIgnoreCase(loan.status())) {
+                g.drawString(this.font, "§a" + AmmoraLang.guiStr("wallet.loan_status_repaid"), badgeX, cardY + 18, 0xFFFFFFFF);
+            } else if ("DEFAULTED".equalsIgnoreCase(loan.status())) {
+                g.drawString(this.font, "§c" + AmmoraLang.guiStr("wallet.loan_status_defaulted"), badgeX, cardY + 18, 0xFFFFFFFF);
+            } else {
+                // ACTIVE: show timer
+                g.drawString(this.font, "§7" + AmmoraLang.guiStr("trade.label_duration"), badgeX, cardY + 12, 0xFFFFFFFF);
+                String rem = formatTimeRemaining(loan.expiresAt());
+                g.drawString(this.font, rem, badgeX, cardY + 24, 0xFFFFFFFF);
+            }
+        }
+
+        renderStatusNotification(g, mx + 8, mw - 16, my + mh - 26);
+
+        if (!hoveredStack.isEmpty()) {
+            g.renderTooltip(this.font, hoveredStack, mouseX, mouseY);
+        }
+    }
+
+    private List<ColdWalletDataPayload.LoanItem> getFilteredLoans() {
+        List<ColdWalletDataPayload.LoanItem> res = new ArrayList<>();
+        if (data != null && data.loans() != null) {
+            for (var l : data.loans()) {
+                if (loanSubTab == 0 && l.isBorrower()) {
+                    res.add(l);
+                } else if (loanSubTab == 1 && !l.isBorrower()) {
+                    res.add(l);
+                }
+            }
+        }
+        return res;
+    }
+
+    private ItemStack reconstructLoanStack(ColdWalletDataPayload.LoanItem loan) {
+        ItemStack st = ItemStack.EMPTY;
+        if (loan.itemNbt() != null && !loan.itemNbt().isEmpty() && this.minecraft != null && this.minecraft.level != null) {
+            try {
+                net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(loan.itemNbt());
+                st = ItemStack.parseOptional(this.minecraft.level.registryAccess(), tag);
+            } catch (Exception ignored) {}
+        }
+        if (st.isEmpty()) {
+            try {
+                net.minecraft.world.item.Item it = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(loan.itemId()));
+                if (it != net.minecraft.world.item.Items.AIR) {
+                    st = new ItemStack(it, loan.itemCount());
+                }
+            } catch (Exception ignored) {}
+        }
+        return st;
+    }
+
+    private String formatTimeRemaining(long expiresAt) {
+        long diff = expiresAt - System.currentTimeMillis();
+        if (diff <= 0) {
+            return "§c" + AmmoraLang.guiStr("wallet.loan_status_defaulted");
+        }
+        long seconds = diff / 1000L;
+        long hours = seconds / 3600L;
+        long minutes = (seconds % 3600L) / 60L;
+        if (hours >= 24) {
+            long days = hours / 24;
+            hours = hours % 24;
+            return "§e" + days + "d " + hours + "h";
+        } else if (hours > 0) {
+            return "§e" + hours + "h " + minutes + "m";
+        } else {
+            return "§e" + minutes + "m " + (seconds % 60L) + "s";
+        }
     }
 
     private String translateNotification(String msg) {

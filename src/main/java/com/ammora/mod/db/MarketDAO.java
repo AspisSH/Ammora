@@ -2038,4 +2038,113 @@ public class MarketDAO {
                 rs.getLong("timestamp")
         );
     }
+
+    // ==========================================
+    // P2P SECURED COLLATERAL LOANS
+    // ==========================================
+
+    public void saveLoan(LoanRecord loan) throws SQLException {
+        String sql = """
+            INSERT INTO p2p_loans (
+                loan_id, lender_uuid, lender_name, borrower_uuid, borrower_name,
+                principal_cbx, interest_rate, total_repay_cbx,
+                item_id, item_nbt, display_name, item_count,
+                created_at, expires_at, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(loan_id) DO UPDATE SET
+                lender_name = excluded.lender_name,
+                borrower_name = excluded.borrower_name,
+                expires_at = excluded.expires_at,
+                status = excluded.status;
+        """;
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, loan.getLoanId());
+            ps.setString(2, loan.getLenderUuid().toString());
+            ps.setString(3, loan.getLenderName());
+            ps.setString(4, loan.getBorrowerUuid().toString());
+            ps.setString(5, loan.getBorrowerName());
+            ps.setDouble(6, loan.getPrincipalCbx());
+            ps.setDouble(7, loan.getInterestRate());
+            ps.setDouble(8, loan.getTotalRepayCbx());
+            ps.setString(9, loan.getItemId());
+            ps.setString(10, loan.getItemNbt());
+            ps.setString(11, loan.getDisplayName());
+            ps.setInt(12, loan.getItemCount());
+            ps.setLong(13, loan.getCreatedAt());
+            ps.setLong(14, loan.getExpiresAt());
+            ps.setString(15, loan.getStatus());
+            ps.executeUpdate();
+        }
+    }
+
+    public LoanRecord getLoan(String loanId) throws SQLException {
+        String sql = "SELECT * FROM p2p_loans WHERE loan_id = ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, loanId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapLoan(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public List<LoanRecord> getPlayerLoans(UUID playerUuid) throws SQLException {
+        List<LoanRecord> list = new ArrayList<>();
+        String sql = "SELECT * FROM p2p_loans WHERE borrower_uuid = ? OR lender_uuid = ? ORDER BY created_at DESC;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, playerUuid.toString());
+            ps.setString(2, playerUuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapLoan(rs));
+                }
+            }
+        }
+        return list;
+    }
+
+    public void updateLoanStatus(String loanId, String status) throws SQLException {
+        String sql = "UPDATE p2p_loans SET status = ? WHERE loan_id = ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, status);
+            ps.setString(2, loanId);
+            ps.executeUpdate();
+        }
+    }
+
+    public List<LoanRecord> getExpiredActiveLoans() throws SQLException {
+        List<LoanRecord> list = new ArrayList<>();
+        String sql = "SELECT * FROM p2p_loans WHERE status = 'ACTIVE' AND expires_at <= ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, System.currentTimeMillis());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapLoan(rs));
+                }
+            }
+        }
+        return list;
+    }
+
+    private LoanRecord mapLoan(ResultSet rs) throws SQLException {
+        return new LoanRecord(
+                rs.getString("loan_id"),
+                UUID.fromString(rs.getString("lender_uuid")),
+                rs.getString("lender_name"),
+                UUID.fromString(rs.getString("borrower_uuid")),
+                rs.getString("borrower_name"),
+                rs.getDouble("principal_cbx"),
+                rs.getDouble("interest_rate"),
+                rs.getDouble("total_repay_cbx"),
+                rs.getString("item_id"),
+                rs.getString("item_nbt"),
+                rs.getString("display_name"),
+                rs.getInt("item_count"),
+                rs.getLong("created_at"),
+                rs.getLong("expires_at"),
+                rs.getString("status")
+        );
+    }
 }
