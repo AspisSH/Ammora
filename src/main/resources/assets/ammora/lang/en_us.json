@@ -859,5 +859,8 @@
   "message.ammora.admin.refreshed": "Data refreshed",
   "message.ammora.admin.unknown_action": "Unknown action: %s",
   "message.ammora.admin.error": "Error: %s",
-  "message.ammora.admin.err_fetch": "§c[AMMORA] Error fetching admin console data: %s"
+  "message.ammora.admin.err_fetch": "§c[AMMORA] Error fetching admin console data: %s",
+  "entity.ammora.courier_bee": "Courier Bee",
+  "message.ammora.courier.dispatched": "§6[AMMORA] §eCourier bee is flying to you, please wait...",
+  "message.ammora.courier.delivered": "§6[AMMORA] §aCourier delivered: %s x%s!"
 }

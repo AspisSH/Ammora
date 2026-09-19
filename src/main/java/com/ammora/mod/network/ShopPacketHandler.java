@@ -7,6 +7,7 @@ import com.ammora.mod.db.MarketTxRecord;
 import com.ammora.mod.db.PlayerAccount;
 import com.ammora.mod.util.AmmoraLang;
 import com.ammora.mod.util.InventoryHelper;
+import com.ammora.mod.entity.CourierBeeEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -23,7 +24,10 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -289,21 +293,29 @@ public final class ShopPacketHandler {
 
             // Give items to buyer preserving full enchantments & durability
             if (!extracted.isEmpty()) {
+                List<ItemStack> stacksToDeliver = new ArrayList<>();
                 int rem = count;
                 int maxStack = extracted.getMaxStackSize();
                 while (rem > 0) {
                     int stCount = Math.min(rem, maxStack);
-                    ItemStack stack = extracted.copyWithCount(stCount);
-                    if (!buyer.getInventory().add(stack)) {
-                        // Safety fallback: save to unclaimed delivery buffer instead of dropping on ground!
-                        String nbt = "";
-                        try {
-                            Tag t = stack.saveOptional(buyer.registryAccess());
-                            if (t != null) nbt = t.getAsString();
-                        } catch (Exception ignored) {}
-                        AmmoraMod.getMarketDAO().saveUnclaimedDelivery(UUID.randomUUID().toString(), buyer.getUUID(), slot.getItemId(), stCount, System.currentTimeMillis(), nbt);
-                    }
+                    stacksToDeliver.add(extracted.copyWithCount(stCount));
                     rem -= stCount;
+                }
+
+                if (payload.isRemote()) {
+                    dispatchCourierBee(buyer, stacksToDeliver, slot);
+                } else {
+                    for (ItemStack stack : stacksToDeliver) {
+                        if (!buyer.getInventory().add(stack)) {
+                            // Safety fallback: save to unclaimed delivery buffer instead of dropping on ground!
+                            String nbt = "";
+                            try {
+                                Tag t = stack.saveOptional(buyer.registryAccess());
+                                if (t != null) nbt = t.getAsString();
+                            } catch (Exception ignored) {}
+                            AmmoraMod.getMarketDAO().saveUnclaimedDelivery(UUID.randomUUID().toString(), buyer.getUUID(), slot.getItemId(), stack.getCount(), System.currentTimeMillis(), nbt);
+                        }
+                    }
                 }
             }
 
@@ -329,6 +341,59 @@ public final class ShopPacketHandler {
             }
         } catch (Exception e) {
             AmmoraMod.LOGGER.error("Failed to execute shop purchase", e);
+        }
+    }
+
+    private static void dispatchCourierBee(ServerPlayer buyer, List<ItemStack> stacks, com.ammora.mod.db.ShopSlotRecord slot) {
+        ServerLevel level = buyer.serverLevel();
+        Vec3 playerPos = buyer.position();
+
+        // Calculate spawn position 12-16 blocks away at a dynamic angle
+        double rotRad = Math.toRadians(buyer.getYRot() + 180 + (level.random.nextDouble() - 0.5) * 60.0);
+        double distance = 12.0 + level.random.nextDouble() * 3.0;
+        double spawnX = playerPos.x - Math.sin(rotRad) * distance;
+        double spawnZ = playerPos.z + Math.cos(rotRad) * distance;
+        double spawnY = playerPos.y + 1.5 + level.random.nextDouble() * 2.0;
+
+        BlockPos testPos = BlockPos.containing(spawnX, spawnY, spawnZ);
+        if (!level.getBlockState(testPos).isAir()) {
+            // If obstructed, spawn overhead in clear area
+            spawnX = playerPos.x + (level.random.nextDouble() - 0.5) * 4.0;
+            spawnZ = playerPos.z + (level.random.nextDouble() - 0.5) * 4.0;
+            spawnY = playerPos.y + 2.5;
+        }
+
+        CourierBeeEntity bee = AmmoraMod.COURIER_BEE.get().create(level);
+        if (bee != null) {
+            bee.moveTo(spawnX, spawnY, spawnZ, buyer.getYRot(), 0.0F);
+            bee.setDeliveryOrder(buyer, stacks);
+            level.addFreshEntity(bee);
+
+            level.playSound(null, buyer.blockPosition(), SoundEvents.BEE_LOOP, SoundSource.PLAYERS, 0.8F, 1.2F);
+            buyer.displayClientMessage(AmmoraLang.message("courier.dispatched"), true);
+        } else {
+            // Direct fallback in case entity creation is disallowed
+            for (ItemStack stack : stacks) {
+                if (!buyer.getInventory().add(stack)) {
+                    String nbt = "";
+                    try {
+                        Tag t = stack.saveOptional(buyer.registryAccess());
+                        if (t != null) nbt = t.getAsString();
+                    } catch (Exception ignored) {}
+                    try {
+                        AmmoraMod.getMarketDAO().saveUnclaimedDelivery(
+                                UUID.randomUUID().toString(),
+                                buyer.getUUID(),
+                                slot.getItemId(),
+                                stack.getCount(),
+                                System.currentTimeMillis(),
+                                nbt
+                        );
+                    } catch (Exception e) {
+                        AmmoraMod.LOGGER.error("Failed to save delivery fallback", e);
+                    }
+                }
+            }
         }
     }
 }

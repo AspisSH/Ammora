@@ -33,6 +33,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
@@ -80,6 +82,8 @@ public class AmmoraMod {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
+    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
+            DeferredRegister.create(Registries.ENTITY_TYPE, MODID);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
 
@@ -151,6 +155,15 @@ public class AmmoraMod {
                     BlockEntityType.Builder.of(com.ammora.mod.blocks.PlayerShopEntity::new, PLAYER_SHOP.get()).build(null)
             );
 
+    // Entities
+    public static final DeferredHolder<EntityType<?>, EntityType<com.ammora.mod.entity.CourierBeeEntity>> COURIER_BEE =
+            ENTITY_TYPES.register("courier_bee", () ->
+                    EntityType.Builder.of(com.ammora.mod.entity.CourierBeeEntity::new, MobCategory.MISC)
+                            .sized(0.7F, 0.6F)
+                            .clientTrackingRange(8)
+                            .build("courier_bee")
+            );
+
     // Creative Tab
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> EXCHANGE_TAB = CREATIVE_MODE_TABS.register(
             "ammora_tab",
@@ -190,15 +203,21 @@ public class AmmoraMod {
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
         BLOCK_ENTITIES.register(modEventBus);
+        ENTITY_TYPES.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::registerCapabilities);
         modEventBus.addListener(PacketHandler::register);
+        modEventBus.addListener(this::registerEntityAttributes);
         modEventBus.addListener(this::onRegister);
         modEventBus.addListener(this::commonSetup);
 
         NeoForge.EVENT_BUS.register(this);
         LOGGER.info("Ammora mod initialized with config.");
+    }
+
+    private void registerEntityAttributes(net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent event) {
+        event.put(COURIER_BEE.get(), com.ammora.mod.entity.CourierBeeEntity.createAttributes().build());
     }
 
     private void onRegister(net.neoforged.neoforge.registries.RegisterEvent event) {

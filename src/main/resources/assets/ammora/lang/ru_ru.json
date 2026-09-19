@@ -859,5 +859,8 @@
   "message.ammora.admin.refreshed": "Данные обновлены",
   "message.ammora.admin.unknown_action": "Неизвестное действие: %s",
   "message.ammora.admin.error": "Ошибка: %s",
-  "message.ammora.admin.err_fetch": "§c[AMMORA] Ошибка получения данных для админ-панели: %s"
+  "message.ammora.admin.err_fetch": "§c[AMMORA] Ошибка получения данных для админ-панели: %s",
+  "entity.ammora.courier_bee": "Курьер Пчёла",
+  "message.ammora.courier.dispatched": "§6[AMMORA] §eКурьер вылетел к вам, ожидайте...",
+  "message.ammora.courier.delivered": "§6[AMMORA] §aКурьер доставил: %s x%s!"
 }
