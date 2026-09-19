@@ -301,4 +301,61 @@ public class CourierBeeEntity extends Bee {
             this.entityData.set(DELIVERED_ITEM, this.deliveryItems.get(0).copy());
         }
     }
+
+    public static void dispatchToPlayer(ServerPlayer recipient, ItemStack stack) {
+        if (stack.isEmpty() || recipient == null) return;
+        ServerLevel level = recipient.serverLevel();
+        net.minecraft.world.phys.Vec3 playerPos = recipient.position();
+
+        double rotRad = Math.toRadians(recipient.getYRot() + 180 + (level.random.nextDouble() - 0.5) * 60.0);
+        double distance = 12.0 + level.random.nextDouble() * 3.0;
+        double spawnX = playerPos.x - Math.sin(rotRad) * distance;
+        double spawnZ = playerPos.z + Math.cos(rotRad) * distance;
+        double spawnY = playerPos.y + 1.5 + level.random.nextDouble() * 2.0;
+
+        BlockPos testPos = BlockPos.containing(spawnX, spawnY, spawnZ);
+        if (!level.getBlockState(testPos).isAir()) {
+            spawnX = playerPos.x + (level.random.nextDouble() - 0.5) * 4.0;
+            spawnZ = playerPos.z + (level.random.nextDouble() - 0.5) * 4.0;
+            spawnY = playerPos.y + 2.5;
+        }
+
+        CourierBeeEntity bee = AmmoraMod.COURIER_BEE.get().create(level);
+        if (bee != null) {
+            bee.moveTo(spawnX, spawnY, spawnZ, recipient.getYRot(), 0.0F);
+            bee.setDeliveryOrder(recipient, stack);
+            level.addFreshEntity(bee);
+
+            level.playSound(null, recipient.blockPosition(), SoundEvents.BEE_LOOP, SoundSource.PLAYERS, 0.8F, 1.2F);
+            recipient.displayClientMessage(AmmoraLang.message("courier.dispatched"), true);
+        } else {
+            if (!recipient.getInventory().add(stack.copy())) {
+                saveFallbackToBuffer(stack, recipient.getUUID(), recipient.registryAccess());
+            }
+        }
+    }
+
+    public static void saveFallbackToBuffer(ItemStack stack, UUID recipientUuid, net.minecraft.core.HolderLookup.Provider registryAccess) {
+        if (stack.isEmpty() || recipientUuid == null) return;
+        String nbt = "";
+        try {
+            Tag t = stack.saveOptional(registryAccess);
+            if (t != null) nbt = t.getAsString();
+        } catch (Exception ignored) {}
+
+        if (AmmoraMod.getMarketDAO() != null) {
+            try {
+                AmmoraMod.getMarketDAO().saveUnclaimedDelivery(
+                        UUID.randomUUID().toString(),
+                        recipientUuid,
+                        BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(),
+                        stack.getCount(),
+                        System.currentTimeMillis(),
+                        nbt
+                );
+            } catch (Exception e) {
+                AmmoraMod.LOGGER.error("Failed to save delivery fallback", e);
+            }
+        }
+    }
 }

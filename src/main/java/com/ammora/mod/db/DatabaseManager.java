@@ -374,6 +374,31 @@ public class DatabaseManager {
                 );
             """);
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_unlocked_player ON player_unlocked_resources (player_uuid);");
+
+            // Live Auctions table (Real-time English Auction with Buyout & Escrow)
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS live_auctions (
+                    auction_id TEXT PRIMARY KEY,
+                    seller_uuid TEXT NOT NULL,
+                    seller_name TEXT NOT NULL,
+                    item_id TEXT NOT NULL,
+                    item_nbt TEXT,
+                    display_name TEXT NOT NULL,
+                    item_count INTEGER NOT NULL,
+                    start_price REAL NOT NULL,
+                    current_bid REAL NOT NULL,
+                    min_bid_step REAL NOT NULL,
+                    buyout_price REAL NOT NULL,
+                    highest_bidder_uuid TEXT,
+                    highest_bidder_name TEXT,
+                    created_at INTEGER NOT NULL,
+                    expires_at INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'ACTIVE'
+                );
+            """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_auctions_status ON live_auctions (status, expires_at);");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_auctions_seller ON live_auctions (seller_uuid);");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_auctions_bidder ON live_auctions (highest_bidder_uuid);");
         }
     }
 }

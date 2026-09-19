@@ -147,8 +147,35 @@ public final class EscrowPacketHandler {
                 ));
             }
 
+            var rawAuctions = AmmoraMod.getMarketDAO().getActiveAuctions();
+            List<MarketplaceDataPayload.LiveAuctionItem> auctionItems = new ArrayList<>();
+            for (var a : rawAuctions) {
+                boolean isOwn = a.getSellerUuid().equals(player.getUUID());
+                boolean isLeading = player.getUUID().equals(a.getHighestBidderUuid());
+                auctionItems.add(new MarketplaceDataPayload.LiveAuctionItem(
+                        a.getAuctionId(),
+                        a.getSellerUuid(),
+                        a.getSellerName(),
+                        a.getItemId(),
+                        a.getItemNbt(),
+                        a.getDisplayName(),
+                        a.getItemCount(),
+                        a.getStartPrice(),
+                        a.getCurrentBid(),
+                        a.getMinBidStep(),
+                        a.getBuyoutPrice(),
+                        a.getHighestBidderUuid(),
+                        a.getHighestBidderName(),
+                        a.getCreatedAt(),
+                        a.getExpiresAt(),
+                        a.getStatus(),
+                        isOwn,
+                        isLeading
+                ));
+            }
+
             PacketDistributor.sendToPlayer(player, new MarketplaceDataPayload(
-                    balance, repLevel, catalog, shops, buyReqs, questItems, txs, deliveries, statusMsg, isError
+                    balance, repLevel, catalog, shops, buyReqs, questItems, txs, deliveries, auctionItems, statusMsg, isError
             ));
         } catch (Exception e) {
             AmmoraMod.LOGGER.error("Failed to send marketplace data to " + player.getName().getString(), e);

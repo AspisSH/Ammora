@@ -2,6 +2,7 @@ package com.ammora.mod.client.gui;
 
 import com.ammora.mod.network.MarketplaceDataPayload;
 import com.ammora.mod.util.AmmoraLang;
+import com.ammora.mod.network.ServerboundAuctionActionPayload;
 import com.ammora.mod.network.ServerboundBuyRequestPayload;
 import com.ammora.mod.network.ServerboundClaimDeliveryPayload;
 import com.ammora.mod.network.ServerboundCommunityQuestPayload;
@@ -30,15 +31,16 @@ import java.util.List;
 
 /**
  * Global Marketplace Tablet Screen.
- * 6 Tabs: Global Market (Drone Delivery), Player Shops Directory (Rust-style), Buy Requests (RFQ), Quests & Bounties, Delivery Buffer (10 slots), and History Ledger.
- * Features full JEI-like item browser for RFQ, shop filtering, anti-overlap layout, quest board, and high-tech styling.
+ * 7 Tabs: Global Market (Drone Delivery), Player Shops Directory (Rust-style), Live Auctions, Buy Requests (RFQ), Quests & Bounties, Delivery Buffer (10 slots), and History Ledger.
+ * Features full JEI-like item browser for RFQ, shop filtering, anti-overlap layout, quest board, real-time live auctions, and high-tech styling.
  */
 public class MarketplaceScreen extends Screen {
 
     private MarketplaceDataPayload data;
-    private int activeTab = 0; // 0: Catalog, 1: Shops, 2: Buy Requests, 3: Quests, 4: Delivery Buffer, 5: History
+    private int activeTab = 0; // 0: Catalog, 1: Shops, 2: Auctions, 3: Buy Requests, 4: Quests, 5: Delivery Buffer, 6: History
     private int catalogPage = 0;
     private int shopsPage = 0;
+    private int auctionPage = 0;
     private int reqPage = 0;
     private int questsPage = 0;
     private int deliveryPage = 0;
@@ -47,6 +49,18 @@ public class MarketplaceScreen extends Screen {
     // Filter by specific shop in Catalog tab
     private String filterShopId = null;
     private String filterShopName = null;
+
+    // Live Auctions filter & creation state
+    private int auctionFilter = 0; // 0: All, 1: My Lots, 2: My Bids
+    private boolean showCreateAuctionModal = false;
+    private int createAuctionSlot = -1;
+    private EditBox auctionStartPriceBox;
+    private EditBox auctionMinStepBox;
+    private EditBox auctionBuyoutBox;
+    private int selectedAuctionDurationMins = 60; // 60, 360, 720, 1440
+    private String lastAuctionStartPrice = "50.0";
+    private String lastAuctionMinStep = "5.0";
+    private String lastAuctionBuyout = "0.0";
 
     private EditBox searchBox;
     private String lastCatalogSearch = "";
@@ -188,6 +202,11 @@ public class MarketplaceScreen extends Screen {
 
         initDefaultRfqItem();
 
+        if (showCreateAuctionModal) {
+            initCreateAuctionWidgets();
+            return;
+        }
+
         if (showCreateQuestModal) {
             initCreateQuestWidgets();
             return;
@@ -209,8 +228,8 @@ public class MarketplaceScreen extends Screen {
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
-        // Navigation Tabs (6 tabs)
-        int tabW = 62;
+        // Navigation Tabs (7 tabs)
+        int tabW = 52;
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 0 ? AmmoraLang.guiStr("market.tab_market_active") : AmmoraLang.guiStr("market.tab_market_inactive")),
                 b -> { activeTab = 0; catalogPage = 0; rebuildWidgets(); }
@@ -219,34 +238,39 @@ public class MarketplaceScreen extends Screen {
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 1 ? AmmoraLang.guiStr("market.tab_shops_active") : AmmoraLang.guiStr("market.tab_shops_inactive")),
                 b -> { activeTab = 1; shopsPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 72, my + 26, tabW, 18).build());
+        ).bounds(mx + 63, my + 26, tabW, 18).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(activeTab == 2 ? AmmoraLang.guiStr("market.tab_rfq_active") : AmmoraLang.guiStr("market.tab_rfq_inactive")),
-                b -> { activeTab = 2; reqPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 136, my + 26, tabW, 18).build());
+                Component.literal(activeTab == 2 ? AmmoraLang.guiStr("market.tab_auctions_active") : AmmoraLang.guiStr("market.tab_auctions_inactive")),
+                b -> { activeTab = 2; auctionPage = 0; rebuildWidgets(); }
+        ).bounds(mx + 118, my + 26, tabW, 18).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(activeTab == 3 ? AmmoraLang.guiStr("market.tab_quests_active") : AmmoraLang.guiStr("market.tab_quests_inactive")),
-                b -> { activeTab = 3; questsPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 200, my + 26, tabW, 18).build());
+                Component.literal(activeTab == 3 ? AmmoraLang.guiStr("market.tab_rfq_active") : AmmoraLang.guiStr("market.tab_rfq_inactive")),
+                b -> { activeTab = 3; reqPage = 0; rebuildWidgets(); }
+        ).bounds(mx + 173, my + 26, tabW, 18).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(activeTab == 4 ? AmmoraLang.guiStr("market.tab_quests_active") : AmmoraLang.guiStr("market.tab_quests_inactive")),
+                b -> { activeTab = 4; questsPage = 0; rebuildWidgets(); }
+        ).bounds(mx + 228, my + 26, tabW, 18).build());
 
         int delCount = (data != null && data.deliveries() != null) ? data.deliveries().size() : 0;
         String bufferTabTitle;
         if (delCount > 0) {
-            bufferTabTitle = activeTab == 4 ? AmmoraLang.guiStr("market.tab_buffer_count_active", delCount) : AmmoraLang.guiStr("market.tab_buffer_count_inactive", delCount);
+            bufferTabTitle = activeTab == 5 ? AmmoraLang.guiStr("market.tab_buffer_count_active", delCount) : AmmoraLang.guiStr("market.tab_buffer_count_inactive", delCount);
         } else {
-            bufferTabTitle = activeTab == 4 ? AmmoraLang.guiStr("market.tab_buffer_active") : AmmoraLang.guiStr("market.tab_buffer_inactive");
+            bufferTabTitle = activeTab == 5 ? AmmoraLang.guiStr("market.tab_buffer_active") : AmmoraLang.guiStr("market.tab_buffer_inactive");
         }
         this.addRenderableWidget(Button.builder(
                 Component.literal(bufferTabTitle),
-                b -> { activeTab = 4; deliveryPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 264, my + 26, 64, 18).build());
+                b -> { activeTab = 5; deliveryPage = 0; rebuildWidgets(); }
+        ).bounds(mx + 283, my + 26, tabW, 18).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(activeTab == 5 ? AmmoraLang.guiStr("market.tab_history_active") : AmmoraLang.guiStr("market.tab_history_inactive")),
-                b -> { activeTab = 5; txPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 330, my + 26, tabW, 18).build());
+                Component.literal(activeTab == 6 ? AmmoraLang.guiStr("market.tab_history_active") : AmmoraLang.guiStr("market.tab_history_inactive")),
+                b -> { activeTab = 6; txPage = 0; rebuildWidgets(); }
+        ).bounds(mx + 338, my + 26, tabW, 18).build());
 
         if (activeTab == 0) {
             // TAB 0: Global Market Catalog
@@ -308,7 +332,100 @@ public class MarketplaceScreen extends Screen {
                 }
             }
         } else if (activeTab == 2) {
-            // TAB 2: Buy Requests (RFQ)
+            // TAB 2: Live Auctions
+            var filtered = getFilteredAuctions();
+            int totalPages = Math.max(1, (filtered.size() + 3) / 4);
+
+            // Filter button: All
+            this.addRenderableWidget(Button.builder(
+                    Component.literal((auctionFilter == 0 ? "§6§l" : "§7") + AmmoraLang.guiStr("auction.filter_all")),
+                    b -> { auctionFilter = 0; auctionPage = 0; rebuildWidgets(); }
+            ).bounds(mx + 12, my + 48, 42, 16).build());
+
+            // Filter button: My Lots
+            this.addRenderableWidget(Button.builder(
+                    Component.literal((auctionFilter == 1 ? "§6§l" : "§7") + AmmoraLang.guiStr("auction.filter_own")),
+                    b -> { auctionFilter = 1; auctionPage = 0; rebuildWidgets(); }
+            ).bounds(mx + 56, my + 48, 56, 16).build());
+
+            // Filter button: My Bids
+            this.addRenderableWidget(Button.builder(
+                    Component.literal((auctionFilter == 2 ? "§6§l" : "§7") + AmmoraLang.guiStr("auction.filter_bids")),
+                    b -> { auctionFilter = 2; auctionPage = 0; rebuildWidgets(); }
+            ).bounds(mx + 114, my + 48, 56, 16).build());
+
+            // [+ Create Lot] button
+            this.addRenderableWidget(Button.builder(
+                    Component.literal(AmmoraLang.guiStr("auction.create_lot")),
+                    b -> { showCreateAuctionModal = true; createAuctionSlot = -1; rebuildWidgets(); }
+            ).bounds(mx + 174, my + 48, 88, 16).build());
+
+            if (auctionPage > 0) {
+                this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
+                    auctionPage--;
+                    rebuildWidgets();
+                }).bounds(mx + mw - 60, my + 48, 22, 16).build());
+            }
+
+            if (auctionPage < totalPages - 1) {
+                this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
+                    auctionPage++;
+                    rebuildWidgets();
+                }).bounds(mx + mw - 34, my + 48, 22, 16).build());
+            }
+
+            int startIndex = auctionPage * 4;
+            for (int i = 0; i < 4; i++) {
+                int aIdx = startIndex + i;
+                if (aIdx < filtered.size()) {
+                    var a = filtered.get(aIdx);
+                    int rowY = my + 68 + i * 39;
+
+                    if (a.isOwn()) {
+                        if (a.highestBidderUuid() == null) {
+                            this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("auction.btn_cancel")), b -> {
+                                PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
+                                        "CANCEL", a.auctionId(), -1, 0, 0, 0, 0, 0
+                                ));
+                            }).bounds(mx + mw - 76, rowY + 10, 64, 18).build());
+                        }
+                    } else {
+                        double nextBid = a.getNextMinBid();
+                        String bidLabel = AmmoraLang.guiStr("auction.btn_bid", String.format(Locale.US, "%.1f", nextBid));
+                        if (a.hasBuyout()) {
+                            String buyoutLabel = AmmoraLang.guiStr("auction.btn_buyout", String.format(Locale.US, "%.1f", a.buyoutPrice()));
+                            var bidBtn = Button.builder(Component.literal(bidLabel), b -> {
+                                PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
+                                        "BID", a.auctionId(), -1, 0, 0, 0, 0, nextBid
+                                ));
+                            }).bounds(mx + mw - 148, rowY + 10, 70, 18)
+                            .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("auction.btn_bid_tooltip", String.format(Locale.US, "%.1f", nextBid)))))
+                            .build();
+                            this.addRenderableWidget(bidBtn);
+
+                            var buyoutBtn = Button.builder(Component.literal(buyoutLabel), b -> {
+                                PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
+                                        "BUYOUT", a.auctionId(), -1, 0, 0, 0, 0, 0
+                                ));
+                            }).bounds(mx + mw - 76, rowY + 10, 70, 18)
+                            .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("auction.btn_buyout_tooltip", String.format(Locale.US, "%.1f", a.buyoutPrice())))))
+                            .build();
+                            this.addRenderableWidget(buyoutBtn);
+                        } else {
+                            var bidBtn = Button.builder(Component.literal(bidLabel), b -> {
+                                PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
+                                        "BID", a.auctionId(), -1, 0, 0, 0, 0, nextBid
+                                ));
+                            }).bounds(mx + mw - 80, rowY + 10, 74, 18)
+                            .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("auction.btn_bid_tooltip", String.format(Locale.US, "%.1f", nextBid)))))
+                            .build();
+                            this.addRenderableWidget(bidBtn);
+                        }
+                    }
+                }
+            }
+        } else if (activeTab == 3) {
+            // TAB 3: Buy Requests (RFQ)
             var reqs = data.buyRequests();
             int totalPages = Math.max(1, (reqs.size() + 3) / 4);
 
@@ -336,7 +453,7 @@ public class MarketplaceScreen extends Screen {
                     if (req.isOwn()) {
                         this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_cancel")), b -> {
                             PacketDistributor.sendToServer(new ServerboundBuyRequestPayload(
-                                    "CANCEL", req.requestId(), "", "", 0, 0
+                                     "CANCEL", req.requestId(), "", "", 0, 0
                             ));
                         }).bounds(mx + mw - 76, rowY + 6, 64, 18).build());
                     } else {
@@ -419,8 +536,8 @@ public class MarketplaceScreen extends Screen {
                 }
             }).bounds(mx + 266, footY + 8, 126, 18).build());
 
-        } else if (activeTab == 3) {
-            // TAB 3: Community Quests & Bounties
+        } else if (activeTab == 4) {
+            // TAB 4: Community Quests & Bounties
             var quests = data.quests();
             int totalPages = Math.max(1, (quests.size() + 3) / 4);
 
@@ -457,8 +574,8 @@ public class MarketplaceScreen extends Screen {
                     }).bounds(mx + mw - 76, rowY + 8, 64, 18).build());
                 }
             }
-        } else if (activeTab == 4) {
-            // TAB 4: Delivery Buffer (10-slot persistent storage)
+        } else if (activeTab == 5) {
+            // TAB 5: Delivery Buffer (10-slot persistent storage)
             var deliveries = (data != null && data.deliveries() != null) ? data.deliveries() : List.<MarketplaceDataPayload.DeliveryBufferItem>of();
             int totalPages = Math.max(1, (deliveries.size() + 9) / 10);
 
@@ -507,8 +624,8 @@ public class MarketplaceScreen extends Screen {
                     this.addRenderableWidget(takeBtn);
                 }
             }
-        } else if (activeTab == 5) {
-            // TAB 5: History Ledger
+        } else if (activeTab == 6) {
+            // TAB 6: History Ledger
             var txs = data.transactions();
             int totalPages = Math.max(1, (txs.size() + 4) / 5);
 
@@ -526,6 +643,99 @@ public class MarketplaceScreen extends Screen {
                 }).bounds(mx + mw - 34, my + 48, 22, 16).build());
             }
         }
+    }
+
+    private void initCreateAuctionWidgets() {
+        int modalW = 310, modalH = 200;
+        int modalX = (this.width - modalW) / 2;
+        int modalY = (this.height - modalH) / 2;
+
+        this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
+            showCreateAuctionModal = false;
+            rebuildWidgets();
+        }).bounds(modalX + modalW - 18, modalY + 4, 14, 14).build());
+
+        int rightX = modalX + 184;
+
+        auctionStartPriceBox = new EditBox(this.font, rightX, modalY + 34, 114, 15, Component.literal(AmmoraLang.guiStr("auction.start_price_label")));
+        auctionStartPriceBox.setMaxLength(8);
+        auctionStartPriceBox.setValue(lastAuctionStartPrice);
+        auctionStartPriceBox.setResponder(s -> lastAuctionStartPrice = s);
+        this.addRenderableWidget(auctionStartPriceBox);
+
+        auctionMinStepBox = new EditBox(this.font, rightX, modalY + 62, 114, 15, Component.literal(AmmoraLang.guiStr("auction.step_label")));
+        auctionMinStepBox.setMaxLength(8);
+        auctionMinStepBox.setValue(lastAuctionMinStep);
+        auctionMinStepBox.setResponder(s -> lastAuctionMinStep = s);
+        this.addRenderableWidget(auctionMinStepBox);
+
+        auctionBuyoutBox = new EditBox(this.font, rightX, modalY + 90, 114, 15, Component.literal(AmmoraLang.guiStr("auction.buyout_label")));
+        auctionBuyoutBox.setMaxLength(8);
+        auctionBuyoutBox.setValue(lastAuctionBuyout);
+        auctionBuyoutBox.setResponder(s -> lastAuctionBuyout = s);
+        this.addRenderableWidget(auctionBuyoutBox);
+
+        int[] durations = {60, 360, 720, 1440};
+        String[] durLabels = {
+                AmmoraLang.guiStr("auction.dur_1h"),
+                AmmoraLang.guiStr("auction.dur_6h"),
+                AmmoraLang.guiStr("auction.dur_12h"),
+                AmmoraLang.guiStr("auction.dur_24h")
+        };
+        for (int i = 0; i < 4; i++) {
+            int dur = durations[i];
+            String label = (selectedAuctionDurationMins == dur ? "§6§l" : "§7") + durLabels[i];
+            this.addRenderableWidget(Button.builder(Component.literal(label), b -> {
+                selectedAuctionDurationMins = dur;
+                rebuildWidgets();
+            }).bounds(rightX + i * 29, modalY + 118, 26, 16).build());
+        }
+
+        this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("auction.btn_publish")), b -> {
+            if (this.minecraft == null || this.minecraft.player == null) return;
+            if (createAuctionSlot < 0 || createAuctionSlot >= this.minecraft.player.getInventory().items.size()) {
+                statusNotification = AmmoraLang.guiStr("auction.notif_no_item");
+                statusNotificationError = true;
+                notificationExpireTime = System.currentTimeMillis() + 3500L;
+                return;
+            }
+            ItemStack selectedStack = this.minecraft.player.getInventory().getItem(createAuctionSlot);
+            if (selectedStack.isEmpty()) {
+                statusNotification = AmmoraLang.guiStr("auction.notif_no_item");
+                statusNotificationError = true;
+                notificationExpireTime = System.currentTimeMillis() + 3500L;
+                return;
+            }
+
+            double startPrice;
+            double minStep;
+            double buyout;
+            try {
+                startPrice = Double.parseDouble(auctionStartPriceBox.getValue().replace(',', '.'));
+                minStep = Double.parseDouble(auctionMinStepBox.getValue().replace(',', '.'));
+                buyout = Double.parseDouble(auctionBuyoutBox.getValue().replace(',', '.'));
+                if (startPrice <= 0 || minStep <= 0 || buyout < 0) throw new NumberFormatException();
+            } catch (NumberFormatException ex) {
+                statusNotification = AmmoraLang.guiStr("auction.notif_invalid_input");
+                statusNotificationError = true;
+                notificationExpireTime = System.currentTimeMillis() + 3500L;
+                return;
+            }
+
+            if (buyout > 0.0 && buyout <= startPrice) {
+                statusNotification = AmmoraLang.guiStr("auction.notif_buyout_low");
+                statusNotificationError = true;
+                notificationExpireTime = System.currentTimeMillis() + 3500L;
+                return;
+            }
+
+            PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
+                    "CREATE", "", createAuctionSlot, startPrice, minStep, buyout, selectedAuctionDurationMins, 0.0
+            ));
+            showCreateAuctionModal = false;
+            createAuctionSlot = -1;
+            rebuildWidgets();
+        }).bounds(modalX + 12, modalY + 168, modalW - 24, 20).build());
     }
 
     private void initCreateQuestWidgets() {
@@ -884,6 +1094,15 @@ public class MarketplaceScreen extends Screen {
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
+        if (showCreateAuctionModal) {
+            // Full screen solid dark dim overlay to isolate modal
+            gg.fill(0, 0, this.width, this.height, 0xEE04070E);
+            renderCreateAuctionModal(gg, mouseX, mouseY);
+            super.render(gg, mouseX, mouseY, partialTicks);
+            renderCreateAuctionTooltip(gg, mouseX, mouseY);
+            return;
+        }
+
         if (showCreateQuestModal) {
             // Full screen solid dark dim overlay to isolate modal
             gg.fill(0, 0, this.width, this.height, 0xEE04070E);
@@ -925,6 +1144,7 @@ public class MarketplaceScreen extends Screen {
         gg.drawString(this.font, balStr, mx + mw - this.font.width(balStr) - 10, my + 8, 0xFFFFFFFF);
 
         MarketplaceDataPayload.MarketplaceSlotItem hoveredCatalogItem = null;
+        MarketplaceDataPayload.LiveAuctionItem hoveredAuction = null;
         MarketplaceDataPayload.BuyRequestItem hoveredRfq = null;
 
         if (activeTab == 0) {
@@ -932,12 +1152,14 @@ public class MarketplaceScreen extends Screen {
         } else if (activeTab == 1) {
             renderShopsTab(gg, mx, my, mw, mh);
         } else if (activeTab == 2) {
-            hoveredRfq = renderBuyRequestsTab(gg, mx, my, mw, mh, mouseX, mouseY);
+            hoveredAuction = renderAuctionsTab(gg, mx, my, mw, mh, mouseX, mouseY);
         } else if (activeTab == 3) {
-            renderQuestsTab(gg, mx, my, mw, mh);
+            hoveredRfq = renderBuyRequestsTab(gg, mx, my, mw, mh, mouseX, mouseY);
         } else if (activeTab == 4) {
-            renderDeliveryBufferTab(gg, mx, my, mw, mh, mouseX, mouseY);
+            renderQuestsTab(gg, mx, my, mw, mh);
         } else if (activeTab == 5) {
+            renderDeliveryBufferTab(gg, mx, my, mw, mh, mouseX, mouseY);
+        } else if (activeTab == 6) {
             renderHistoryTab(gg, mx, my, mw, mh);
         }
 
@@ -956,7 +1178,7 @@ public class MarketplaceScreen extends Screen {
         }
 
         // Catalog Tooltip
-        if (!showItemPickerModal && !showCreateQuestModal && selectedQuest == null && hoveredCatalogItem != null) {
+        if (!showItemPickerModal && !showCreateQuestModal && !showCreateAuctionModal && selectedQuest == null && hoveredCatalogItem != null) {
             List<Component> tooltip = new ArrayList<>();
             tooltip.add(Component.literal("§e" + hoveredCatalogItem.displayName()));
             tooltip.add(Component.literal("§7ID: §8" + hoveredCatalogItem.itemId()));
@@ -974,8 +1196,16 @@ public class MarketplaceScreen extends Screen {
             gg.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
         }
 
+        // Live Auction Tooltip
+        if (!showItemPickerModal && !showCreateQuestModal && !showCreateAuctionModal && selectedQuest == null && hoveredAuction != null) {
+            ItemStack st = reconstructAuctionStack(hoveredAuction);
+            if (!st.isEmpty()) {
+                gg.renderTooltip(this.font, st, mouseX, mouseY);
+            }
+        }
+
         // RFQ Card Tooltip
-        if (!showItemPickerModal && !showCreateQuestModal && selectedQuest == null && hoveredRfq != null) {
+        if (!showItemPickerModal && !showCreateQuestModal && !showCreateAuctionModal && selectedQuest == null && hoveredRfq != null) {
             List<Component> tooltip = new ArrayList<>();
             tooltip.add(Component.literal("§e" + hoveredRfq.displayName()));
             tooltip.add(Component.literal("§8ID: " + hoveredRfq.itemId()));
@@ -987,7 +1217,7 @@ public class MarketplaceScreen extends Screen {
         }
 
         // RFQ Selected Item Tooltip in footer
-        if (!showItemPickerModal && !showCreateQuestModal && selectedQuest == null && activeTab == 2) {
+        if (!showItemPickerModal && !showCreateQuestModal && !showCreateAuctionModal && selectedQuest == null && activeTab == 3) {
             int footY = my + mh - 36;
             if (mouseX >= mx + 8 && mouseX <= mx + 26 && mouseY >= footY + 8 && mouseY <= footY + 26 && selectedRfqItem != null && !selectedRfqItem.isEmpty()) {
                 gg.renderTooltip(this.font, selectedRfqItem, mouseX, mouseY);
@@ -1358,6 +1588,256 @@ public class MarketplaceScreen extends Screen {
         }
     }
 
+    private MarketplaceDataPayload.LiveAuctionItem renderAuctionsTab(GuiGraphics gg, int mx, int my, int mw, int mh, int mouseX, int mouseY) {
+        var filtered = getFilteredAuctions();
+        int totalPages = Math.max(1, (filtered.size() + 3) / 4);
+
+        // Page info in toolbar
+        String pageStr = (auctionPage + 1) + "/" + totalPages;
+        gg.drawString(this.font, pageStr, mx + mw - 66 - this.font.width(pageStr), my + 52, COLOR_TEXT_MUTED);
+
+        if (filtered.isEmpty()) {
+            gg.drawCenteredString(this.font, AmmoraLang.guiStr("auction.empty"), mx + mw / 2, my + 110, COLOR_TEXT_MUTED);
+            return null;
+        }
+
+        MarketplaceDataPayload.LiveAuctionItem hoveredItem = null;
+        int startIndex = auctionPage * 4;
+        for (int i = 0; i < 4; i++) {
+            int aIdx = startIndex + i;
+            int cardY = my + 68 + i * 39;
+            int cardW = mw - 20;
+            int cardX = mx + 10;
+
+            if (aIdx < filtered.size()) {
+                var a = filtered.get(aIdx);
+                int bg = a.isLeading() ? 0xEE0B1914 : (a.isOwn() ? 0xEE14110A : COLOR_PANEL);
+                int border = a.isLeading() ? COLOR_GREEN : (a.isOwn() ? COLOR_AMBER : COLOR_BORDER_MUTED);
+
+                gg.fill(cardX, cardY, cardX + cardW, cardY + 36, bg);
+                drawOutlinedBox(gg, cardX, cardY, cardW, 36, border);
+
+                // Slot box for item
+                gg.fill(cardX + 6, cardY + 8, cardX + 26, cardY + 28, 0xFF0D1322);
+                drawOutlinedBox(gg, cardX + 6, cardY + 8, 20, 20, COLOR_BORDER_MUTED);
+
+                ItemStack st = reconstructAuctionStack(a);
+                if (!st.isEmpty()) {
+                    gg.renderItem(st, cardX + 8, cardY + 10);
+                    String countStr = a.count() > 1 ? String.valueOf(a.count()) : "";
+                    gg.renderItemDecorations(this.font, st, cardX + 8, cardY + 10, countStr);
+                }
+
+                if (mouseX >= cardX + 6 && mouseX <= cardX + 26 && mouseY >= cardY + 8 && mouseY <= cardY + 28) {
+                    hoveredItem = a;
+                }
+
+                // Line 1: Item Name
+                String nameStr = truncate("§f" + a.displayName() + (a.count() > 1 ? " x" + a.count() : ""), 140);
+                gg.drawString(this.font, nameStr, cardX + 30, cardY + 4, 0xFFFFFFFF);
+
+                // Line 2: Seller & Time left
+                String timeStr = formatTimeRemaining(a.expiresAt());
+                int timeColor = getTimeColor(a.expiresAt());
+                String sellerStr = AmmoraLang.guiStr("auction.seller", a.sellerName());
+                gg.drawString(this.font, truncate(sellerStr, 80), cardX + 30, cardY + 15, COLOR_TEXT_MUTED);
+                gg.drawString(this.font, "⏱ " + timeStr, cardX + 115, cardY + 15, timeColor);
+
+                // Line 3: Current bid / Start price & Leader badge
+                if (a.currentBid() > 0.0) {
+                    String bidStr = AmmoraLang.guiStr("auction.current_bid", String.format(Locale.US, "%.1f", a.currentBid()));
+                    gg.drawString(this.font, bidStr, cardX + 30, cardY + 26, 0xFFFFFFFF);
+                } else {
+                    String startStr = AmmoraLang.guiStr("auction.start_price", String.format(Locale.US, "%.1f", a.startPrice()));
+                    gg.drawString(this.font, startStr, cardX + 30, cardY + 26, 0xFFFFFFFF);
+                }
+
+                if (a.isLeading()) {
+                    gg.drawString(this.font, AmmoraLang.guiStr("auction.leading_you"), cardX + 130, cardY + 26, COLOR_GREEN);
+                } else if (a.highestBidderName() != null && !a.highestBidderName().isEmpty()) {
+                    gg.drawString(this.font, AmmoraLang.guiStr("auction.leading_other", a.highestBidderName()), cardX + 130, cardY + 26, COLOR_TEXT_MUTED);
+                } else {
+                    gg.drawString(this.font, AmmoraLang.guiStr("auction.no_bids"), cardX + 130, cardY + 26, 0xFF556677);
+                }
+
+                // If own lot and has active bids: display "Bids Active" label instead of cancel button
+                if (a.isOwn() && a.highestBidderUuid() != null) {
+                    gg.drawString(this.font, AmmoraLang.guiStr("auction.active_bids_label"), cardX + cardW - 74, cardY + 14, COLOR_AMBER);
+                }
+            } else {
+                // Visual placeholder
+                gg.fill(cardX, cardY, cardX + cardW, cardY + 36, 0x33080D16);
+            }
+        }
+
+        return hoveredItem;
+    }
+
+    private void renderCreateAuctionModal(GuiGraphics gg, int mouseX, int mouseY) {
+        int modalW = 310, modalH = 200;
+        int modalX = (this.width - modalW) / 2;
+        int modalY = (this.height - modalH) / 2;
+
+        // Solid Frame (100% opaque, zero bleed-through)
+        gg.fill(modalX, modalY, modalX + modalW, modalY + modalH, 0xFF080D18);
+        drawOutlinedBox(gg, modalX, modalY, modalW, modalH, COLOR_BORDER_CYAN);
+
+        // Header
+        gg.fill(modalX + 1, modalY + 1, modalX + modalW - 1, modalY + 20, 0xFF0D1422);
+        gg.hLine(modalX + 1, modalX + modalW - 1, modalY + 20, COLOR_BORDER_MUTED);
+        gg.drawString(this.font, "§6✦ " + AmmoraLang.guiStr("auction.modal_title") + " ✦", modalX + 8, modalY + 6, 0xFFFFFFFF);
+
+        // Subtitle above inventory
+        gg.drawString(this.font, AmmoraLang.guiStr("auction.select_item"), modalX + 12, modalY + 24, COLOR_TEXT_MUTED);
+
+        // Render player's 36 inventory slots:
+        // Rows 0..2: slots 9..35 (main inventory)
+        // Row 3: slots 0..8 (hotbar)
+        int gridX = modalX + 12;
+        int gridY = modalY + 36;
+        if (this.minecraft != null && this.minecraft.player != null) {
+            var inv = this.minecraft.player.getInventory();
+            for (int r = 0; r < 4; r++) {
+                for (int c = 0; c < 9; c++) {
+                    int slot = (r < 3) ? (9 + r * 9 + c) : c;
+                    int sx = gridX + c * 18;
+                    int sy = gridY + r * 18;
+
+                    gg.fill(sx, sy, sx + 18, sy + 18, 0xFF0D1322);
+                    boolean isSelected = (slot == createAuctionSlot);
+                    int borderColor = isSelected ? COLOR_BORDER_CYAN : COLOR_BORDER_MUTED;
+                    drawOutlinedBox(gg, sx, sy, 18, 18, borderColor);
+
+                    if (slot < inv.items.size()) {
+                        ItemStack st = inv.getItem(slot);
+                        if (!st.isEmpty()) {
+                            gg.renderItem(st, sx + 1, sy + 1);
+                            gg.renderItemDecorations(this.font, st, sx + 1, sy + 1);
+
+                            if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
+                                drawOutlinedBox(gg, sx, sy, 18, 18, 0xFFFFFFFF);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Preview box under inventory grid
+        int prevSlotX = modalX + 12;
+        int prevSlotY = modalY + 114;
+        gg.fill(prevSlotX, prevSlotY, prevSlotX + 20, prevSlotY + 20, 0xFF0D1322);
+        drawOutlinedBox(gg, prevSlotX, prevSlotY, 20, 20, COLOR_BORDER_MUTED);
+
+        if (this.minecraft != null && this.minecraft.player != null && createAuctionSlot >= 0 && createAuctionSlot < this.minecraft.player.getInventory().items.size()) {
+            ItemStack selected = this.minecraft.player.getInventory().getItem(createAuctionSlot);
+            if (!selected.isEmpty()) {
+                gg.renderItem(selected, prevSlotX + 2, prevSlotY + 2);
+                gg.renderItemDecorations(this.font, selected, prevSlotX + 2, prevSlotY + 2);
+                String nameStr = truncate("§f" + selected.getHoverName().getString() + " x" + selected.getCount(), 140);
+                gg.drawString(this.font, nameStr, modalX + 36, prevSlotY + 6, 0xFFFFFFFF);
+            } else {
+                gg.drawString(this.font, AmmoraLang.guiStr("auction.selected_item_none"), modalX + 36, prevSlotY + 6, COLOR_TEXT_MUTED);
+            }
+        } else {
+            gg.drawString(this.font, AmmoraLang.guiStr("auction.selected_item_none"), modalX + 36, prevSlotY + 6, COLOR_TEXT_MUTED);
+        }
+
+        // Labels on right side
+        int rightX = modalX + 184;
+        gg.drawString(this.font, AmmoraLang.guiStr("auction.start_price_label"), rightX, modalY + 24, COLOR_TEXT_MUTED);
+        gg.drawString(this.font, AmmoraLang.guiStr("auction.step_label"), rightX, modalY + 52, COLOR_TEXT_MUTED);
+        gg.drawString(this.font, AmmoraLang.guiStr("auction.buyout_label"), rightX, modalY + 80, COLOR_TEXT_MUTED);
+        gg.drawString(this.font, AmmoraLang.guiStr("auction.duration_label"), rightX, modalY + 108, COLOR_TEXT_MUTED);
+    }
+
+    private void renderCreateAuctionTooltip(GuiGraphics gg, int mouseX, int mouseY) {
+        if (this.minecraft == null || this.minecraft.player == null) return;
+        int modalW = 310, modalH = 200;
+        int modalX = (this.width - modalW) / 2;
+        int modalY = (this.height - modalH) / 2;
+        int gridX = modalX + 12;
+        int gridY = modalY + 36;
+
+        var inv = this.minecraft.player.getInventory();
+        for (int r = 0; r < 4; r++) {
+            for (int c = 0; c < 9; c++) {
+                int slot = (r < 3) ? (9 + r * 9 + c) : c;
+                int sx = gridX + c * 18;
+                int sy = gridY + r * 18;
+
+                if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
+                    if (slot < inv.items.size()) {
+                        ItemStack st = inv.getItem(slot);
+                        if (!st.isEmpty()) {
+                            gg.renderTooltip(this.font, st, mouseX, mouseY);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private ItemStack reconstructAuctionStack(MarketplaceDataPayload.LiveAuctionItem a) {
+        ItemStack st = ItemStack.EMPTY;
+        if (a.itemNbt() != null && !a.itemNbt().isEmpty() && this.minecraft != null && this.minecraft.level != null) {
+            try {
+                net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(a.itemNbt());
+                st = ItemStack.parseOptional(this.minecraft.level.registryAccess(), tag);
+            } catch (Exception ignored) {}
+        }
+        if (st.isEmpty()) {
+            try {
+                Item it = BuiltInRegistries.ITEM.get(ResourceLocation.parse(a.itemId()));
+                if (it != Items.AIR) {
+                    st = new ItemStack(it, a.count());
+                }
+            } catch (Exception ignored) {}
+        }
+        return st;
+    }
+
+    private String formatTimeRemaining(long expiresAt) {
+        long diff = expiresAt - System.currentTimeMillis();
+        if (diff <= 0) {
+            return AmmoraLang.guiStr("auction.time_expired");
+        }
+        long seconds = diff / 1000L;
+        long hours = seconds / 3600L;
+        long minutes = (seconds % 3600L) / 60L;
+        long secs = seconds % 60L;
+        if (hours > 0) {
+            return String.format(Locale.US, "%dh %02dm", hours, minutes);
+        } else if (minutes > 0) {
+            return String.format(Locale.US, "%02dm %02ds", minutes, secs);
+        } else {
+            return String.format(Locale.US, "%02ds", secs);
+        }
+    }
+
+    private int getTimeColor(long expiresAt) {
+        long diff = expiresAt - System.currentTimeMillis();
+        if (diff < 60_000L) {
+            return COLOR_RED;
+        } else if (diff < 600_000L) {
+            return COLOR_AMBER;
+        } else {
+            return COLOR_GREEN;
+        }
+    }
+
+    private List<MarketplaceDataPayload.LiveAuctionItem> getFilteredAuctions() {
+        if (data == null || data.auctions() == null) return List.of();
+        var stream = data.auctions().stream();
+        if (auctionFilter == 1) {
+            stream = stream.filter(MarketplaceDataPayload.LiveAuctionItem::isOwn);
+        } else if (auctionFilter == 2) {
+            stream = stream.filter(MarketplaceDataPayload.LiveAuctionItem::isLeading);
+        }
+        return stream.toList();
+    }
+
     private void renderItemPickerModal(GuiGraphics gg, int mouseX, int mouseY) {
         int modalW = 280, modalH = 190;
         int modalX = (this.width - modalW) / 2;
@@ -1433,6 +1913,44 @@ public class MarketplaceScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (showCreateAuctionModal) {
+            int modalW = 310, modalH = 200;
+            int modalX = (this.width - modalW) / 2;
+            int modalY = (this.height - modalH) / 2;
+
+            if (mouseX >= modalX + modalW - 20 && mouseX <= modalX + modalW - 4 && mouseY >= modalY + 4 && mouseY <= modalY + 20) {
+                showCreateAuctionModal = false;
+                rebuildWidgets();
+                return true;
+            }
+            if (mouseX < modalX || mouseX > modalX + modalW || mouseY < modalY || mouseY > modalY + modalH) {
+                showCreateAuctionModal = false;
+                rebuildWidgets();
+                return true;
+            }
+
+            int gridX = modalX + 12;
+            int gridY = modalY + 36;
+            if (this.minecraft != null && this.minecraft.player != null) {
+                var inv = this.minecraft.player.getInventory();
+                for (int r = 0; r < 4; r++) {
+                    for (int c = 0; c < 9; c++) {
+                        int sx = gridX + c * 18;
+                        int sy = gridY + r * 18;
+                        if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
+                            int slot = (r < 3) ? (9 + r * 9 + c) : c;
+                            if (slot < inv.items.size() && !inv.getItem(slot).isEmpty()) {
+                                createAuctionSlot = slot;
+                                this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+
         if (showCreateQuestModal) {
             int modalW = 280, modalH = 200;
             int modalX = (this.width - modalW) / 2;
@@ -1516,7 +2034,7 @@ public class MarketplaceScreen extends Screen {
         }
 
         // Click on preview item slot in RFQ footer opens search modal
-        if (activeTab == 2) {
+        if (activeTab == 3) {
             int mw = 400, mh = 240;
             int mx = (this.width - mw) / 2;
             int my = (this.height - mh) / 2;
@@ -1534,6 +2052,23 @@ public class MarketplaceScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (showCreateAuctionModal) {
+            if (keyCode == 256) {
+                showCreateAuctionModal = false;
+                rebuildWidgets();
+                return true;
+            }
+            boolean textFocused = (auctionStartPriceBox != null && auctionStartPriceBox.isFocused())
+                    || (auctionMinStepBox != null && auctionMinStepBox.isFocused())
+                    || (auctionBuyoutBox != null && auctionBuyoutBox.isFocused());
+            if (!textFocused && this.minecraft != null && this.minecraft.options.keyInventory.matches(keyCode, scanCode)) {
+                showCreateAuctionModal = false;
+                rebuildWidgets();
+                return true;
+            }
+            return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+
         if (showCreateQuestModal) {
             if (keyCode == 256) {
                 showCreateQuestModal = false;
@@ -1579,7 +2114,10 @@ public class MarketplaceScreen extends Screen {
         if (this.minecraft != null && this.minecraft.options.keyInventory.matches(keyCode, scanCode)) {
             boolean textFocused = (searchBox != null && searchBox.isFocused())
                     || (bountyPriceBox != null && bountyPriceBox.isFocused())
-                    || (bountyCountBox != null && bountyCountBox.isFocused());
+                    || (bountyCountBox != null && bountyCountBox.isFocused())
+                    || (auctionStartPriceBox != null && auctionStartPriceBox.isFocused())
+                    || (auctionMinStepBox != null && auctionMinStepBox.isFocused())
+                    || (auctionBuyoutBox != null && auctionBuyoutBox.isFocused());
             if (!textFocused) {
                 this.onClose();
                 return true;

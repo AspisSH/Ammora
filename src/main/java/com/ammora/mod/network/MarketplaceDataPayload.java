@@ -23,6 +23,7 @@ public record MarketplaceDataPayload(
         List<CommunityQuestItem> quests,
         List<MarketTxItem> transactions,
         List<DeliveryBufferItem> deliveries,
+        List<LiveAuctionItem> auctions,
         String statusMessage,
         boolean isError
 ) implements CustomPacketPayload {
@@ -35,10 +36,25 @@ public record MarketplaceDataPayload(
             List<BuyRequestItem> buyRequests,
             List<CommunityQuestItem> quests,
             List<MarketTxItem> transactions,
+            List<DeliveryBufferItem> deliveries,
             String statusMessage,
             boolean isError
     ) {
-        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, List.of(), statusMessage, isError);
+        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, List.of(), statusMessage, isError);
+    }
+
+    public MarketplaceDataPayload(
+            double balanceCbx,
+            int repLevel,
+            List<MarketplaceSlotItem> catalogSlots,
+            List<MarketplaceShopItem> shops,
+            List<BuyRequestItem> buyRequests,
+            List<CommunityQuestItem> quests,
+            List<MarketTxItem> transactions,
+            String statusMessage,
+            boolean isError
+    ) {
+        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, List.of(), List.of(), statusMessage, isError);
     }
 
     @Deprecated
@@ -138,6 +154,38 @@ public record MarketplaceDataPayload(
             String itemNbt
     ) {}
 
+    public record LiveAuctionItem(
+            String auctionId,
+            UUID sellerUuid,
+            String sellerName,
+            String itemId,
+            String itemNbt,
+            String displayName,
+            int count,
+            double startPrice,
+            double currentBid,
+            double minBidStep,
+            double buyoutPrice,
+            UUID highestBidderUuid,
+            String highestBidderName,
+            long createdAt,
+            long expiresAt,
+            String status,
+            boolean isOwn,
+            boolean isLeading
+    ) {
+        public double getNextMinBid() {
+            if (currentBid <= 0.0 || highestBidderUuid == null) {
+                return startPrice;
+            }
+            return currentBid + minBidStep;
+        }
+
+        public boolean hasBuyout() {
+            return buyoutPrice > 0.0;
+        }
+    }
+
     public MarketplaceDataPayload(FriendlyByteBuf buf) {
         this(
                 buf.readDouble(),
@@ -148,6 +196,7 @@ public record MarketplaceDataPayload(
                 readQuests(buf),
                 readTx(buf),
                 readDeliveries(buf),
+                readAuctions(buf),
                 buf.readUtf(),
                 buf.readBoolean()
         );
@@ -348,6 +397,33 @@ public record MarketplaceDataPayload(
             }
         }
 
+        buf.writeVarInt(auctions != null ? auctions.size() : 0);
+        if (auctions != null) {
+            for (LiveAuctionItem a : auctions) {
+                buf.writeUtf(a.auctionId());
+                buf.writeUUID(a.sellerUuid());
+                buf.writeUtf(a.sellerName());
+                buf.writeUtf(a.itemId());
+                buf.writeUtf(a.itemNbt() != null ? a.itemNbt() : "");
+                buf.writeUtf(a.displayName());
+                buf.writeVarInt(a.count());
+                buf.writeDouble(a.startPrice());
+                buf.writeDouble(a.currentBid());
+                buf.writeDouble(a.minBidStep());
+                buf.writeDouble(a.buyoutPrice());
+                buf.writeBoolean(a.highestBidderUuid() != null);
+                if (a.highestBidderUuid() != null) {
+                    buf.writeUUID(a.highestBidderUuid());
+                }
+                buf.writeUtf(a.highestBidderName() != null ? a.highestBidderName() : "");
+                buf.writeLong(a.createdAt());
+                buf.writeLong(a.expiresAt());
+                buf.writeUtf(a.status());
+                buf.writeBoolean(a.isOwn());
+                buf.writeBoolean(a.isLeading());
+            }
+        }
+
         buf.writeUtf(statusMessage != null ? statusMessage : "");
         buf.writeBoolean(isError);
     }
@@ -363,6 +439,38 @@ public record MarketplaceDataPayload(
                     buf.readVarInt(),
                     buf.readLong(),
                     buf.readUtf()
+            ));
+        }
+        return list;
+    }
+
+    private static List<LiveAuctionItem> readAuctions(FriendlyByteBuf buf) {
+        int size = buf.readVarInt();
+        List<LiveAuctionItem> list = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            String auctionId = buf.readUtf();
+            UUID sellerUuid = buf.readUUID();
+            String sellerName = buf.readUtf();
+            String itemId = buf.readUtf();
+            String itemNbt = buf.readUtf();
+            String displayName = buf.readUtf();
+            int count = buf.readVarInt();
+            double startPrice = buf.readDouble();
+            double currentBid = buf.readDouble();
+            double minBidStep = buf.readDouble();
+            double buyoutPrice = buf.readDouble();
+            boolean hasBidder = buf.readBoolean();
+            UUID highestBidderUuid = hasBidder ? buf.readUUID() : null;
+            String highestBidderName = buf.readUtf();
+            long createdAt = buf.readLong();
+            long expiresAt = buf.readLong();
+            String status = buf.readUtf();
+            boolean isOwn = buf.readBoolean();
+            boolean isLeading = buf.readBoolean();
+            list.add(new LiveAuctionItem(
+                    auctionId, sellerUuid, sellerName, itemId, itemNbt, displayName, count,
+                    startPrice, currentBid, minBidStep, buyoutPrice, highestBidderUuid, highestBidderName,
+                    createdAt, expiresAt, status, isOwn, isLeading
             ));
         }
         return list;

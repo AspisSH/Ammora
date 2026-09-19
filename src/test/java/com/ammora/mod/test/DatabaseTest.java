@@ -3,6 +3,7 @@ package com.ammora.mod.test;
 import com.ammora.mod.core.Candle;
 import com.ammora.mod.core.MarketResource;
 import com.ammora.mod.core.OMSPosition;
+import com.ammora.mod.db.AuctionRecord;
 import com.ammora.mod.db.DatabaseManager;
 import com.ammora.mod.db.MarketDAO;
 import com.ammora.mod.db.PlayerAccount;
@@ -192,5 +193,77 @@ public class DatabaseTest {
         List<PlayerAccount> updated = dao.getAllAccounts();
         assertEquals("Alice", updated.get(0).getPlayerName());
         assertEquals(9999.0, updated.get(0).getBalanceCbx());
+    }
+
+    @Test
+    @DisplayName("Should create auction, place bids with anti-sniping, and retrieve expired auctions")
+    public void testAuctionPersistenceAndBidding() throws SQLException {
+        UUID seller = UUID.randomUUID();
+        UUID bidder1 = UUID.randomUUID();
+        UUID bidder2 = UUID.randomUUID();
+
+        long now = System.currentTimeMillis();
+        long expires = now + 50_000L; // 50 seconds remaining (within anti-sniping window)
+
+        AuctionRecord auction = new AuctionRecord(
+                "auc-1",
+                seller,
+                "SellerPlayer",
+                "minecraft:diamond_sword",
+                "{Damage:0}",
+                "Diamond Sword",
+                1,
+                100.0,
+                0.0,
+                10.0,
+                500.0,
+                null,
+                "",
+                now,
+                expires,
+                "ACTIVE"
+        );
+
+        dao.saveOrUpdateAuction(auction);
+
+        AuctionRecord loaded = dao.getAuction("auc-1");
+        assertNotNull(loaded);
+        assertEquals("Diamond Sword", loaded.getDisplayName());
+        assertEquals(100.0, loaded.getNextMinBid());
+        assertTrue(loaded.hasBuyout());
+
+        // Bidder 1 places first bid at start price
+        boolean bid1 = loaded.placeBid(bidder1, "BidderOne", 100.0);
+        assertTrue(bid1);
+        assertEquals(100.0, loaded.getCurrentBid());
+        assertEquals(bidder1, loaded.getHighestBidderUuid());
+        // Anti-sniping should have extended expiresAt because remaining was < 60s
+        assertTrue(loaded.getExpiresAt() > expires);
+
+        dao.saveOrUpdateAuction(loaded);
+
+        // Bidder 2 attempts bid below minimum step (100 + 10 = 110 required)
+        AuctionRecord loaded2 = dao.getAuction("auc-1");
+        assertEquals(110.0, loaded2.getNextMinBid());
+        boolean invalidBid = loaded2.placeBid(bidder2, "BidderTwo", 105.0);
+        assertFalse(invalidBid);
+
+        // Bidder 2 places valid bid
+        boolean validBid = loaded2.placeBid(bidder2, "BidderTwo", 120.0);
+        assertTrue(validBid);
+        assertEquals(120.0, loaded2.getCurrentBid());
+        assertEquals(bidder2, loaded2.getHighestBidderUuid());
+        dao.saveOrUpdateAuction(loaded2);
+
+        // Check active auctions list
+        List<AuctionRecord> active = dao.getActiveAuctions();
+        assertEquals(1, active.size());
+
+        // Check expired filter
+        List<AuctionRecord> expiredNone = dao.getExpiredActiveAuctions(now);
+        assertTrue(expiredNone.isEmpty());
+
+        List<AuctionRecord> expiredLater = dao.getExpiredActiveAuctions(loaded2.getExpiresAt() + 1000L);
+        assertEquals(1, expiredLater.size());
     }
 }

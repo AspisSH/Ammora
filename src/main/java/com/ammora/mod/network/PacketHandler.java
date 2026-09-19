@@ -238,6 +238,16 @@ public class PacketHandler {
                 })
         );
 
+        registrar.playToServer(
+                ServerboundAuctionActionPayload.TYPE,
+                ServerboundAuctionActionPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer serverPlayer) {
+                        AuctionPacketHandler.handleAuctionAction(serverPlayer, payload);
+                    }
+                })
+        );
+
         // ----------------------------------------------------
         // Client to Server: P2P Direct Trade Session Domain
         // ----------------------------------------------------

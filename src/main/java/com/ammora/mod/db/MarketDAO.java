@@ -1374,4 +1374,106 @@ public class MarketDAO {
             ps.executeUpdate();
         }
     }
+
+    // ==========================================
+    // LIVE AUCTIONS (REAL-TIME ESCROW BIDDING)
+    // ==========================================
+
+    public void saveOrUpdateAuction(AuctionRecord a) throws SQLException {
+        String sql = """
+            INSERT INTO live_auctions (
+                auction_id, seller_uuid, seller_name, item_id, item_nbt, display_name, item_count,
+                start_price, current_bid, min_bid_step, buyout_price,
+                highest_bidder_uuid, highest_bidder_name, created_at, expires_at, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(auction_id) DO UPDATE SET
+                seller_name = excluded.seller_name,
+                current_bid = excluded.current_bid,
+                highest_bidder_uuid = excluded.highest_bidder_uuid,
+                highest_bidder_name = excluded.highest_bidder_name,
+                expires_at = excluded.expires_at,
+                status = excluded.status;
+        """;
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, a.getAuctionId());
+            ps.setString(2, a.getSellerUuid().toString());
+            ps.setString(3, a.getSellerName());
+            ps.setString(4, a.getItemId());
+            ps.setString(5, a.getItemNbt());
+            ps.setString(6, a.getDisplayName());
+            ps.setInt(7, a.getItemCount());
+            ps.setDouble(8, a.getStartPrice());
+            ps.setDouble(9, a.getCurrentBid());
+            ps.setDouble(10, a.getMinBidStep());
+            ps.setDouble(11, a.getBuyoutPrice());
+            ps.setString(12, a.getHighestBidderUuid() != null ? a.getHighestBidderUuid().toString() : null);
+            ps.setString(13, a.getHighestBidderName());
+            ps.setLong(14, a.getCreatedAt());
+            ps.setLong(15, a.getExpiresAt());
+            ps.setString(16, a.getStatus());
+            ps.executeUpdate();
+        }
+    }
+
+    public AuctionRecord getAuction(String auctionId) throws SQLException {
+        String sql = "SELECT * FROM live_auctions WHERE auction_id = ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, auctionId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapAuction(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public List<AuctionRecord> getActiveAuctions() throws SQLException {
+        List<AuctionRecord> list = new ArrayList<>();
+        String sql = "SELECT * FROM live_auctions WHERE status = 'ACTIVE' ORDER BY expires_at ASC;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapAuction(rs));
+            }
+        }
+        return list;
+    }
+
+    public List<AuctionRecord> getExpiredActiveAuctions(long now) throws SQLException {
+        List<AuctionRecord> list = new ArrayList<>();
+        String sql = "SELECT * FROM live_auctions WHERE status = 'ACTIVE' AND expires_at <= ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, now);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapAuction(rs));
+                }
+            }
+        }
+        return list;
+    }
+
+    private AuctionRecord mapAuction(ResultSet rs) throws SQLException {
+        String bidderUuidStr = rs.getString("highest_bidder_uuid");
+        UUID bidderUuid = (bidderUuidStr != null && !bidderUuidStr.isEmpty()) ? UUID.fromString(bidderUuidStr) : null;
+        return new AuctionRecord(
+                rs.getString("auction_id"),
+                UUID.fromString(rs.getString("seller_uuid")),
+                rs.getString("seller_name"),
+                rs.getString("item_id"),
+                rs.getString("item_nbt"),
+                rs.getString("display_name"),
+                rs.getInt("item_count"),
+                rs.getDouble("start_price"),
+                rs.getDouble("current_bid"),
+                rs.getDouble("min_bid_step"),
+                rs.getDouble("buyout_price"),
+                bidderUuid,
+                rs.getString("highest_bidder_name"),
+                rs.getLong("created_at"),
+                rs.getLong("expires_at"),
+                rs.getString("status")
+        );
+    }
 }

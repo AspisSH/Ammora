@@ -462,15 +462,96 @@ public class AmmoraMod {
             }
         }
 
-        // Periodic processing every 20 ticks (1 second) for limit orders and contracts
+        // Periodic processing every 20 ticks (1 second) for limit orders, contracts, and live auctions
         if (server.getTickCount() % 20 == 0) {
             try {
                 marketManager.processPendingLimitOrders();
                 marketManager.processContractTicks(event.getServer().overworld().getGameTime());
+                processExpiredAuctions(server);
             } catch (Exception e) {
                 LOGGER.error("Error processing periodic market derivatives", e);
             }
         }
+    }
+
+    private void processExpiredAuctions(MinecraftServer server) {
+        if (marketDAO == null) return;
+        try {
+            long now = System.currentTimeMillis();
+            var expired = marketDAO.getExpiredActiveAuctions(now);
+            if (expired == null || expired.isEmpty()) return;
+
+            for (var auction : expired) {
+                if (auction.getHighestBidderUuid() != null && auction.getCurrentBid() > 0.0) {
+                    auction.complete();
+                    marketDAO.saveOrUpdateAuction(auction);
+
+                    double finalPrice = auction.getCurrentBid();
+                    double fee = Math.max(1.0, Math.round(finalPrice * 0.02 * 100.0) / 100.0);
+                    double sellerPayout = finalPrice - fee;
+                    PlayerAccount sellerAcc = marketDAO.getAccount(auction.getSellerUuid(), auction.getSellerName());
+                    if (sellerAcc != null) {
+                        sellerAcc.deposit(sellerPayout);
+                        marketDAO.saveAccount(sellerAcc);
+                    }
+
+                    marketDAO.recordMarketTransaction(new com.ammora.mod.db.MarketTxRecord(
+                            UUID.randomUUID().toString(),
+                            "AUCTION_WIN",
+                            auction.getAuctionId(),
+                            auction.getHighestBidderUuid(), auction.getHighestBidderName(),
+                            auction.getSellerUuid(), auction.getSellerName(),
+                            auction.getItemId(), auction.getDisplayName(),
+                            auction.getItemCount(), finalPrice, fee, now
+                    ));
+
+                    ServerPlayer winner = server.getPlayerList().getPlayer(auction.getHighestBidderUuid());
+                    net.minecraft.world.item.ItemStack wonStack = parseAuctionStack(auction, server);
+                    if (winner != null) {
+                        com.ammora.mod.entity.CourierBeeEntity.dispatchToPlayer(winner, wonStack);
+                        winner.sendSystemMessage(com.ammora.mod.util.AmmoraLang.message("auction.won_notify", auction.getDisplayName(), com.ammora.mod.core.MarketEngine.round2(finalPrice)));
+                    } else {
+                        com.ammora.mod.entity.CourierBeeEntity.saveFallbackToBuffer(wonStack, auction.getHighestBidderUuid(), server.registryAccess());
+                    }
+
+                    ServerPlayer seller = server.getPlayerList().getPlayer(auction.getSellerUuid());
+                    if (seller != null) {
+                        seller.sendSystemMessage(com.ammora.mod.util.AmmoraLang.message("auction.sold_notify", auction.getDisplayName(), com.ammora.mod.core.MarketEngine.round2(sellerPayout)));
+                    }
+                } else {
+                    auction.expire();
+                    marketDAO.saveOrUpdateAuction(auction);
+
+                    ServerPlayer seller = server.getPlayerList().getPlayer(auction.getSellerUuid());
+                    net.minecraft.world.item.ItemStack returnStack = parseAuctionStack(auction, server);
+                    if (seller != null) {
+                        com.ammora.mod.entity.CourierBeeEntity.dispatchToPlayer(seller, returnStack);
+                        seller.sendSystemMessage(com.ammora.mod.util.AmmoraLang.message("auction.expired_notify", auction.getDisplayName()));
+                    } else {
+                        com.ammora.mod.entity.CourierBeeEntity.saveFallbackToBuffer(returnStack, auction.getSellerUuid(), server.registryAccess());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error processing expired live auctions", e);
+        }
+    }
+
+    private static net.minecraft.world.item.ItemStack parseAuctionStack(com.ammora.mod.db.AuctionRecord auction, MinecraftServer server) {
+        net.minecraft.world.item.ItemStack stack = net.minecraft.world.item.ItemStack.EMPTY;
+        if (auction.getItemNbt() != null && !auction.getItemNbt().isEmpty()) {
+            try {
+                net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(auction.getItemNbt());
+                stack = net.minecraft.world.item.ItemStack.parseOptional(server.registryAccess(), tag);
+            } catch (Exception ignored) {}
+        }
+        if (stack.isEmpty() && auction.getItemId() != null && !auction.getItemId().isEmpty()) {
+            net.minecraft.world.item.Item it = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(auction.getItemId()));
+            if (it != null && it != net.minecraft.world.item.Items.AIR) {
+                stack = new net.minecraft.world.item.ItemStack(it, auction.getItemCount());
+            }
+        }
+        return stack;
     }
 
     public static void deliverPendingClaims(ServerPlayer player) {
