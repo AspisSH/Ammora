@@ -40,7 +40,9 @@
     copyPageBtn: document.getElementById("copy-page-btn"),
     copyPageText: document.getElementById("copy-page-text"),
     copyPageIcon: document.getElementById("copy-page-icon"),
-    promptMdLink: document.getElementById("prompt-md-link")
+    copyPromptBtn: document.getElementById("copy-prompt-btn"),
+    copyPromptText: document.getElementById("copy-prompt-text"),
+    copyPromptIcon: document.getElementById("copy-prompt-icon")
   };
 
   // SVGs for clean icon rendering (no emojis)
@@ -95,6 +97,11 @@
     DOM.tocTitle.textContent = data.onThisPage;
     if (DOM.copyPageText) DOM.copyPageText.textContent = data.copyPage || "Copy page";
     if (DOM.copyPageBtn) DOM.copyPageBtn.title = data.copyPage || "Copy page as Markdown";
+    if (DOM.copyPromptBtn) {
+      DOM.copyPromptBtn.title = state.lang === 'ru'
+        ? 'Скопировать команду инициализации AI агента (prompt.md)'
+        : 'Copy AI agent setup command (prompt.md)';
+    }
 
     renderSidebar();
     renderCurrentSection();
@@ -631,6 +638,36 @@
           DOM.copyPageBtn.classList.remove("copied");
           if (DOM.copyPageIcon) {
             DOM.copyPageIcon.innerHTML = `<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>`;
+          }
+        }, 2200);
+      });
+    });
+  }
+
+  if (DOM.copyPromptBtn) {
+    DOM.copyPromptBtn.addEventListener("click", () => {
+      let promptUrl = "https://aspis-sh.github.io/Ammora/prompt.md";
+      try {
+        if (window.location.protocol.startsWith("http")) {
+          promptUrl = new URL("prompt.md", window.location.href).href;
+        }
+      } catch (e) {}
+
+      const promptCommand = `Fetch and execute the appropriate instructions to set me up for Ammora from ${promptUrl}`;
+
+      navigator.clipboard.writeText(promptCommand).then(() => {
+        const originalText = DOM.copyPromptText.textContent;
+        DOM.copyPromptText.textContent = state.lang === 'ru' ? 'Скопировано!' : 'Copied!';
+        DOM.copyPromptBtn.classList.add("copied");
+        if (DOM.copyPromptIcon) {
+          DOM.copyPromptIcon.innerHTML = `<polyline points="20 6 9 17 4 12" stroke-width="2.5"></polyline>`;
+        }
+
+        setTimeout(() => {
+          DOM.copyPromptText.textContent = originalText;
+          DOM.copyPromptBtn.classList.remove("copied");
+          if (DOM.copyPromptIcon) {
+            DOM.copyPromptIcon.innerHTML = `<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>`;
           }
         }, 2200);
       });
