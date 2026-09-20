@@ -7,6 +7,9 @@ window.DOCS_RU = {
   onThisPage: "На этой странице",
   copied: "Скопировано!",
   copy: "Копировать",
+  copyPage: "Копировать страницу",
+  copyPageSuccess: "Скопировано в Markdown!",
+  aiPrompt: "prompt.md",
   categories: [
     {
       id: "general",

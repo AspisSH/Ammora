@@ -36,7 +36,11 @@
     searchModalOverlay: document.getElementById("search-modal-overlay"),
     searchModalInput: document.getElementById("search-modal-input"),
     searchResults: document.getElementById("search-results"),
-    searchPlaceholderText: document.getElementById("search-placeholder-text")
+    searchPlaceholderText: document.getElementById("search-placeholder-text"),
+    copyPageBtn: document.getElementById("copy-page-btn"),
+    copyPageText: document.getElementById("copy-page-text"),
+    copyPageIcon: document.getElementById("copy-page-icon"),
+    promptMdLink: document.getElementById("prompt-md-link")
   };
 
   // SVGs for clean icon rendering (no emojis)
@@ -89,6 +93,8 @@
     const data = getDocsData();
     DOM.searchPlaceholderText.textContent = data.searchPlaceholder;
     DOM.tocTitle.textContent = data.onThisPage;
+    if (DOM.copyPageText) DOM.copyPageText.textContent = data.copyPage || "Copy page";
+    if (DOM.copyPageBtn) DOM.copyPageBtn.title = data.copyPage || "Copy page as Markdown";
 
     renderSidebar();
     renderCurrentSection();
@@ -505,6 +511,131 @@
 
   DOM.mobileNavToggle.addEventListener("click", toggleMobileSidebar);
   DOM.sidebarBackdrop.addEventListener("click", closeMobileSidebar);
+
+  // =========================================================================
+  // HTML to Markdown Serializer & Copy Page Handler
+  // =========================================================================
+  function htmlToMarkdown(container, title, subtitle) {
+    let md = `# ${title}\n\n`;
+    if (subtitle) {
+      md += `> ${subtitle}\n\n`;
+    }
+
+    function serializeNode(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return "";
+      }
+
+      const tag = node.tagName.toLowerCase();
+
+      // Ignore interactive calculator widget / scripts
+      if (node.id === "amm-calc-mount" || node.classList.contains("amm-calc-container") || tag === "script") {
+        return "\n*[Interactive AMM Simulator Widget]*\n\n";
+      }
+
+      // Code blocks
+      if (node.classList.contains("code-block-wrapper")) {
+        const langLabel = node.querySelector(".code-lang-label");
+        const lang = langLabel ? langLabel.textContent.trim().toLowerCase() : "";
+        const code = node.querySelector("pre.code-block code");
+        const codeText = code ? code.innerText : "";
+        return `\n\`\`\`${lang}\n${codeText.trim()}\n\`\`\`\n\n`;
+      }
+
+      // Callouts / Alerts
+      if (node.classList.contains("callout")) {
+        const titleEl = node.querySelector(".callout-title");
+        const alertType = titleEl ? titleEl.textContent.trim().toUpperCase() : "NOTE";
+        const inner = Array.from(node.children)
+          .filter(c => !c.classList.contains("callout-header"))
+          .map(c => serializeNode(c))
+          .join("")
+          .trim();
+        return `\n> [!${alertType}]\n> ${inner.replace(/\n/g, "\n> ")}\n\n`;
+      }
+
+      // Tables
+      if (tag === "table") {
+        let tableMd = "\n";
+        const rows = Array.from(node.querySelectorAll("tr"));
+        rows.forEach((row, rIdx) => {
+          const cells = Array.from(row.querySelectorAll("th, td"));
+          tableMd += "| " + cells.map(c => serializeNode(c).trim().replace(/\|/g, "\\|")).join(" | ") + " |\n";
+          if (rIdx === 0) {
+            tableMd += "| " + cells.map(() => "---").join(" | ") + " |\n";
+          }
+        });
+        return tableMd + "\n";
+      }
+
+      // Headings
+      if (tag === "h1") return `\n# ${serializeChildren(node).trim()}\n\n`;
+      if (tag === "h2") return `\n## ${serializeChildren(node).trim()}\n\n`;
+      if (tag === "h3") return `\n### ${serializeChildren(node).trim()}\n\n`;
+      if (tag === "h4") return `\n#### ${serializeChildren(node).trim()}\n\n`;
+
+      // Paragraphs & Divs
+      if (tag === "p") return `${serializeChildren(node).trim()}\n\n`;
+
+      // Lists
+      if (tag === "ul") {
+        return "\n" + Array.from(node.children).map(li => `- ${serializeChildren(li).trim()}`).join("\n") + "\n\n";
+      }
+      if (tag === "ol") {
+        return "\n" + Array.from(node.children).map((li, idx) => `${idx + 1}. ${serializeChildren(li).trim()}`).join("\n") + "\n\n";
+      }
+      if (tag === "li") {
+        return serializeChildren(node).trim();
+      }
+
+      // Inlines
+      if (tag === "strong" || tag === "b") return `**${serializeChildren(node)}**`;
+      if (tag === "em" || tag === "i") return `*${serializeChildren(node)}*`;
+      if (tag === "code") return `\`${node.textContent}\``;
+      if (tag === "a") {
+        const href = node.getAttribute("href") || "#";
+        return `[${serializeChildren(node)}](${href})`;
+      }
+      if (tag === "hr") return "\n---\n\n";
+      if (tag === "br") return "\n";
+
+      return serializeChildren(node);
+     }
+
+    function serializeChildren(parent) {
+      return Array.from(parent.childNodes).map(serializeNode).join("");
+    }
+
+    md += serializeChildren(container);
+    return md.replace(/\n{3,}/g, "\n\n").trim() + "\n";
+  }
+
+  if (DOM.copyPageBtn) {
+    DOM.copyPageBtn.addEventListener("click", () => {
+      const data = getDocsData();
+      const section = data.sections[state.currentSection] || data.sections["overview"];
+      const md = htmlToMarkdown(DOM.articleBody, section.title, section.subtitle);
+
+      navigator.clipboard.writeText(md).then(() => {
+        DOM.copyPageText.textContent = data.copyPageSuccess || (state.lang === 'ru' ? 'Скопировано в Markdown!' : 'Copied as Markdown!');
+        DOM.copyPageBtn.classList.add("copied");
+        if (DOM.copyPageIcon) {
+          DOM.copyPageIcon.innerHTML = `<polyline points="20 6 9 17 4 12" stroke-width="2.5"></polyline>`;
+        }
+
+        setTimeout(() => {
+          DOM.copyPageText.textContent = data.copyPage || (state.lang === 'ru' ? 'Копировать страницу' : 'Copy page');
+          DOM.copyPageBtn.classList.remove("copied");
+          if (DOM.copyPageIcon) {
+            DOM.copyPageIcon.innerHTML = `<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>`;
+          }
+        }, 2200);
+      });
+    });
+  }
 
   // =========================================================================
   // Copy Code Snippet Global Helper

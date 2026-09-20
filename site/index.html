@@ -92,7 +92,24 @@
         
         <article class="docs-article">
           <header class="article-header">
-            <h1 class="article-title" id="article-title">Ammora Documentation</h1>
+            <div class="article-header-row">
+              <h1 class="article-title" id="article-title">Ammora Documentation</h1>
+              <div class="article-actions">
+                <button class="copy-page-btn" id="copy-page-btn" aria-label="Copy page as Markdown" title="Копировать страницу в формате Markdown">
+                  <svg class="icon-svg" id="copy-page-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  <span id="copy-page-text">Копировать страницу</span>
+                </button>
+                <a href="prompt.md" target="_blank" rel="noopener noreferrer" class="prompt-md-link" id="prompt-md-link" title="Инструкция и контекст для нейросетей (LLMs)">
+                  <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                  </svg>
+                  <span>prompt.md</span>
+                </a>
+              </div>
+            </div>
             <p class="article-subtitle" id="article-subtitle"></p>
           </header>
 

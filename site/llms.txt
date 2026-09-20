@@ -1,0 +1,19 @@
+# Ammora Documentation
+
+> Ammora is a comprehensive financial and market-making mod for Minecraft (NeoForge 1.21.1) featuring Automated Market Maker (AMM) economics, Create & ComputerCraft integrations, joint accounts/corporations, live auctions, and drone delivery.
+
+## Agent Prompt
+- [prompt.md](prompt.md): Complete setup prompt and technical instructions for AI agents and LLMs.
+
+## Documentation
+- [Overview](index.html#overview): Mod concepts, AMM bonding curve, and economy.
+- [AMM Economics](index.html#amm-economics): Mathematical model, slippage, and negative disposal fees.
+- [Interactive Calculator](index.html#calculator): Interactive AMM price curve simulator.
+- [Blocks & Terminals](index.html#blocks-terminal): Exchange terminal, candlestick charts, and limit orders.
+- [Logistics Docks](index.html#blocks-logistics): Trade dock, purchase dock, and kinetic acceleration.
+- [Cold Wallet & P2P](index.html#cold-wallet): Handheld biometric wallet and NFC transfers.
+- [Vending Machines & Marketplace](index.html#vending-marketplace): Showcase shops and 8-tab tablet.
+- [CC: Tweaked Integration](index.html#cc-tweaked): Lua API methods, events, and automated trading bots.
+- [Create Mod](index.html#create-mod): Kinetic dock acceleration and Flap Display Link.
+- [Datapacks Guide](index.html#datapacks): Custom commodity schemas and price curve calibration.
+- [Admin Console](index.html#admin-console): `/ammora admin` operator management and event triggers.

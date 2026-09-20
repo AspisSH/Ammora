@@ -7,6 +7,9 @@ window.DOCS_EN = {
   onThisPage: "On this page",
   copied: "Copied!",
   copy: "Copy",
+  copyPage: "Copy page",
+  copyPageSuccess: "Copied as Markdown!",
+  aiPrompt: "prompt.md",
   categories: [
     {
       id: "general",
