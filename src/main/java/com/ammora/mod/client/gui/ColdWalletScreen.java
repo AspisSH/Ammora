@@ -656,33 +656,41 @@ public class ColdWalletScreen extends Screen {
 
             // Info rows
             int textX = cardX + 46;
+            int badgeX = cardX + cardW - 126;
+            int maxTextW = badgeX - textX - 6;
+
             // Row 1: Item display name
             String displayName = loan.displayName();
             if (loan.itemCount() > 1) displayName += " x" + loan.itemCount();
-            if (this.font.width(displayName) > 170) {
-                displayName = this.font.plainSubstrByWidth(displayName, 164) + "..";
+            if (this.font.width(displayName) > maxTextW) {
+                displayName = this.font.plainSubstrByWidth(displayName, maxTextW - 6) + "..";
             }
             g.drawString(this.font, "§f§l" + displayName, textX, cardY + 6, 0xFFFFFFFF);
 
-            // Row 2: Counterparty
+            // Row 2: Counterparty & Principal with rate
             String cp = (loanSubTab == 0)
                     ? AmmoraLang.guiStr("wallet.loan_lender", "§e" + loan.lenderName())
                     : AmmoraLang.guiStr("wallet.loan_borrower", "§b" + loan.borrowerName());
-            g.drawString(this.font, "§7" + cp, textX, cardY + 18, 0xFFFFFFFF);
-
-            // Row 3: Financials
-            String fin = AmmoraLang.guiStr("wallet.loan_card_fin",
+            String loanInfo = AmmoraLang.guiStr("wallet.loan_card_loan",
                     String.format(Locale.US, "%.1f", loan.principalCbx()),
-                    String.format(Locale.US, "%.0f", loan.interestRate()),
-                    String.format(Locale.US, "%.1f", loan.totalRepayCbx())
+                    String.format(Locale.US, "%.0f", loan.interestRate())
             );
-            if (this.font.width(fin) > 190) {
-                fin = this.font.plainSubstrByWidth(fin, 184) + "..";
+            String row2 = "§7" + cp + " §8| " + loanInfo;
+            if (this.font.width(row2) > maxTextW) {
+                row2 = this.font.plainSubstrByWidth(row2, maxTextW - 6) + "..";
             }
-            g.drawString(this.font, fin, textX, cardY + 30, 0xFFFFFFFF);
+            g.drawString(this.font, row2, textX, cardY + 18, 0xFFFFFFFF);
+
+            // Row 3: Total Repay / Expected Amount
+            String repayStr = (loanSubTab == 0)
+                    ? AmmoraLang.guiStr("wallet.loan_card_repay", String.format(Locale.US, "%.1f", loan.totalRepayCbx()))
+                    : AmmoraLang.guiStr("wallet.loan_card_expected", String.format(Locale.US, "%.1f", loan.totalRepayCbx()));
+            if (this.font.width(repayStr) > maxTextW) {
+                repayStr = this.font.plainSubstrByWidth(repayStr, maxTextW - 6) + "..";
+            }
+            g.drawString(this.font, repayStr, textX, cardY + 30, 0xFFFFFFFF);
 
             // Status Badge / Countdown Timer
-            int badgeX = cardX + cardW - 146;
             if ("REPAID".equalsIgnoreCase(loan.status())) {
                 g.drawString(this.font, "§a" + AmmoraLang.guiStr("wallet.loan_status_repaid"), badgeX, cardY + 18, 0xFFFFFFFF);
             } else if ("DEFAULTED".equalsIgnoreCase(loan.status())) {

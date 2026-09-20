@@ -877,7 +877,7 @@
   "gui.ammora.auction.btn_cancel": "Cancel",
   "gui.ammora.auction.active_bids_label": "§eBids Active",
   "gui.ammora.auction.seller": "Seller: %s",
-  "gui.ammora.auction.current_bid": "Current bid: §a%s CBX",
+  "gui.ammora.auction.current_bid": "Bid: §a%s CBX",
   "gui.ammora.auction.start_price": "Start: §e%s CBX",
   "gui.ammora.auction.buyout_price": "Buyout: §6%s CBX",
   "gui.ammora.auction.leading_you": "§a✔ You are leading",
@@ -1068,5 +1068,8 @@
   "gui.ammora.trade.days_fmt": "%d d",
   "gui.ammora.trade.collateral_click_remove": "Click to remove",
   "gui.ammora.wallet.loan_card_fin": "Loan: %s CBX (%s%%) | Repay: %s CBX",
+  "gui.ammora.wallet.loan_card_loan": "Loan: §f%s CBX §8(%s%%)",
+  "gui.ammora.wallet.loan_card_repay": "To Repay: §e§l%s CBX",
+  "gui.ammora.wallet.loan_card_expected": "To Receive: §a§l%s CBX",
   "gui.ammora.wallet.loan_page": "Page %d/%d"
 }

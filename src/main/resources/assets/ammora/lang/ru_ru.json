@@ -877,7 +877,7 @@
   "gui.ammora.auction.btn_cancel": "Отмена",
   "gui.ammora.auction.active_bids_label": "§eИдут торги",
   "gui.ammora.auction.seller": "Продавец: %s",
-  "gui.ammora.auction.current_bid": "Текущая ставка: §a%s CBX",
+  "gui.ammora.auction.current_bid": "Ставка: §a%s CBX",
   "gui.ammora.auction.start_price": "Старт: §e%s CBX",
   "gui.ammora.auction.buyout_price": "Выкуп: §6%s CBX",
   "gui.ammora.auction.leading_you": "§a✔ Вы лидируете",
@@ -1068,5 +1068,8 @@
   "gui.ammora.trade.days_fmt": "%d д",
   "gui.ammora.trade.collateral_click_remove": "Кликните, чтобы забрать",
   "gui.ammora.wallet.loan_card_fin": "Заём: %s CBX (%s%%) | К возврату: %s CBX",
+  "gui.ammora.wallet.loan_card_loan": "Заём: §f%s CBX §8(%s%%)",
+  "gui.ammora.wallet.loan_card_repay": "К возврату: §e§l%s CBX",
+  "gui.ammora.wallet.loan_card_expected": "К получению: §a§l%s CBX",
   "gui.ammora.wallet.loan_page": "Стр. %d/%d"
 }

@@ -426,22 +426,30 @@ public class MarketplaceScreen extends Screen {
 
                     if (a.isOwn()) {
                         if (a.highestBidderUuid() == null) {
+                            int btnW = 68;
+                            int cancelX = mx + mw - 14 - btnW;
                             this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("auction.btn_cancel")), b -> {
                                 PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
                                         "CANCEL", a.auctionId(), -1, 0, 0, 0, 0, 0
                                 ));
-                            }).bounds(mx + mw - 76, rowY + 10, 64, 18).build());
+                            }).bounds(cancelX, rowY + 9, btnW, 18).build());
                         }
                     } else {
                         double nextBid = a.getNextMinBid();
-                        String bidLabel = AmmoraLang.guiStr("auction.btn_bid", String.format(Locale.US, "%.1f", nextBid));
+                        String bidFmt = String.format(Locale.US, nextBid % 1 == 0 ? "%.0f" : "%.1f", nextBid);
+                        String bidLabel = AmmoraLang.guiStr("auction.btn_bid", bidFmt);
                         if (a.hasBuyout()) {
-                            String buyoutLabel = AmmoraLang.guiStr("auction.btn_buyout", String.format(Locale.US, "%.1f", a.buyoutPrice()));
+                            String buyoutFmt = String.format(Locale.US, a.buyoutPrice() % 1 == 0 ? "%.0f" : "%.1f", a.buyoutPrice());
+                            String buyoutLabel = AmmoraLang.guiStr("auction.btn_buyout", buyoutFmt);
+                            int btnW = 74;
+                            int buyoutX = mx + mw - 14 - btnW;
+                            int bidX = buyoutX - 4 - btnW;
+
                             var bidBtn = Button.builder(Component.literal(bidLabel), b -> {
                                 PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
                                         "BID", a.auctionId(), -1, 0, 0, 0, 0, nextBid, useCompanyAccount
                                 ));
-                            }).bounds(mx + mw - 148, rowY + 10, 70, 18)
+                            }).bounds(bidX, rowY + 9, btnW, 18)
                             .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("auction.btn_bid_tooltip", String.format(Locale.US, "%.1f", nextBid)))))
                             .build();
                             this.addRenderableWidget(bidBtn);
@@ -450,16 +458,18 @@ public class MarketplaceScreen extends Screen {
                                 PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
                                         "BUYOUT", a.auctionId(), -1, 0, 0, 0, 0, 0, useCompanyAccount
                                 ));
-                            }).bounds(mx + mw - 76, rowY + 10, 70, 18)
+                            }).bounds(buyoutX, rowY + 9, btnW, 18)
                             .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("auction.btn_buyout_tooltip", String.format(Locale.US, "%.1f", a.buyoutPrice())))))
                             .build();
                             this.addRenderableWidget(buyoutBtn);
                         } else {
+                            int btnW = 86;
+                            int bidX = mx + mw - 14 - btnW;
                             var bidBtn = Button.builder(Component.literal(bidLabel), b -> {
                                 PacketDistributor.sendToServer(new ServerboundAuctionActionPayload(
                                         "BID", a.auctionId(), -1, 0, 0, 0, 0, nextBid, useCompanyAccount
                                 ));
-                            }).bounds(mx + mw - 80, rowY + 10, 74, 18)
+                            }).bounds(bidX, rowY + 9, btnW, 18)
                             .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("auction.btn_bid_tooltip", String.format(Locale.US, "%.1f", nextBid)))))
                             .build();
                             this.addRenderableWidget(bidBtn);
@@ -1687,37 +1697,62 @@ public class MarketplaceScreen extends Screen {
                     hoveredItem = a;
                 }
 
+                // Max right position before buttons to avoid overlap
+                int maxRight = a.hasBuyout() ? (mx + mw - 166) : (mx + mw - 104);
+                if (a.isOwn()) {
+                    maxRight = mx + mw - 86;
+                }
+                int maxTextW = maxRight - (cardX + 30);
+
                 // Line 1: Item Name
-                String nameStr = truncate("§f" + a.displayName() + (a.count() > 1 ? " x" + a.count() : ""), 140);
+                String nameStr = truncate("§f" + a.displayName() + (a.count() > 1 ? " x" + a.count() : ""), maxTextW);
                 gg.drawString(this.font, nameStr, cardX + 30, cardY + 4, 0xFFFFFFFF);
 
                 // Line 2: Seller & Time left
                 String timeStr = formatTimeRemaining(a.expiresAt());
                 int timeColor = getTimeColor(a.expiresAt());
                 String sellerStr = AmmoraLang.guiStr("auction.seller", a.sellerName());
-                gg.drawString(this.font, truncate(sellerStr, 80), cardX + 30, cardY + 15, COLOR_TEXT_MUTED);
-                gg.drawString(this.font, "⏱ " + timeStr, cardX + 115, cardY + 15, timeColor);
+                int sellerMaxW = Math.min(85, maxTextW - 65);
+                gg.drawString(this.font, truncate(sellerStr, sellerMaxW), cardX + 30, cardY + 15, COLOR_TEXT_MUTED);
+                int timeX = cardX + 30 + Math.min(sellerMaxW, this.font.width(sellerStr)) + 6;
+                gg.drawString(this.font, "⏱ " + timeStr, timeX, cardY + 15, timeColor);
 
-                // Line 3: Current bid / Start price & Leader badge
-                if (a.currentBid() > 0.0) {
-                    String bidStr = AmmoraLang.guiStr("auction.current_bid", String.format(Locale.US, "%.1f", a.currentBid()));
-                    gg.drawString(this.font, bidStr, cardX + 30, cardY + 26, 0xFFFFFFFF);
-                } else {
-                    String startStr = AmmoraLang.guiStr("auction.start_price", String.format(Locale.US, "%.1f", a.startPrice()));
-                    gg.drawString(this.font, startStr, cardX + 30, cardY + 26, 0xFFFFFFFF);
-                }
+                // Line 3: Current bid / Start price & Leader badge (placed dynamically AFTER bid)
+                String bidFmt = String.format(Locale.US, a.currentBid() % 1 == 0 ? "%.0f" : "%.1f", a.currentBid());
+                String startFmt = String.format(Locale.US, a.startPrice() % 1 == 0 ? "%.0f" : "%.1f", a.startPrice());
+                String bidStr = (a.currentBid() > 0.0)
+                        ? AmmoraLang.guiStr("auction.current_bid", bidFmt)
+                        : AmmoraLang.guiStr("auction.start_price", startFmt);
+                gg.drawString(this.font, bidStr, cardX + 30, cardY + 26, 0xFFFFFFFF);
 
-                if (a.isLeading()) {
-                    gg.drawString(this.font, AmmoraLang.guiStr("auction.leading_you"), cardX + 130, cardY + 26, COLOR_GREEN);
-                } else if (a.highestBidderName() != null && !a.highestBidderName().isEmpty()) {
-                    gg.drawString(this.font, AmmoraLang.guiStr("auction.leading_other", a.highestBidderName()), cardX + 130, cardY + 26, COLOR_TEXT_MUTED);
-                } else {
-                    gg.drawString(this.font, AmmoraLang.guiStr("auction.no_bids"), cardX + 130, cardY + 26, 0xFF556677);
+                int bidW = this.font.width(bidStr);
+                int leaderX = cardX + 30 + bidW + 8;
+                int maxLeaderW = maxRight - leaderX;
+
+                if (maxLeaderW > 16) {
+                    String leaderText;
+                    int leaderColor;
+                    if (a.isLeading()) {
+                        leaderText = AmmoraLang.guiStr("auction.leading_you");
+                        leaderColor = COLOR_GREEN;
+                    } else if (a.highestBidderName() != null && !a.highestBidderName().isEmpty()) {
+                        leaderText = AmmoraLang.guiStr("auction.leading_other", a.highestBidderName());
+                        leaderColor = COLOR_TEXT_MUTED;
+                    } else {
+                        leaderText = AmmoraLang.guiStr("auction.no_bids");
+                        leaderColor = 0xFF556677;
+                    }
+
+                    if (this.font.width(leaderText) > maxLeaderW) {
+                        leaderText = this.font.plainSubstrByWidth(leaderText, Math.max(10, maxLeaderW - 6)) + "..";
+                    }
+                    gg.drawString(this.font, leaderText, leaderX, cardY + 26, leaderColor);
                 }
 
                 // If own lot and has active bids: display "Bids Active" label instead of cancel button
                 if (a.isOwn() && a.highestBidderUuid() != null) {
-                    gg.drawString(this.font, AmmoraLang.guiStr("auction.active_bids_label"), cardX + cardW - 74, cardY + 14, COLOR_AMBER);
+                    String bidsActiveStr = AmmoraLang.guiStr("auction.active_bids_label");
+                    gg.drawString(this.font, bidsActiveStr, cardX + cardW - 8 - this.font.width(bidsActiveStr), cardY + 14, COLOR_AMBER);
                 }
             } else {
                 // Visual placeholder
