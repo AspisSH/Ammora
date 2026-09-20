@@ -37,7 +37,7 @@ public class CourierFlyToPlayerGoal extends Goal {
     @Override
     public void start() {
         if (this.targetPlayer != null) {
-            this.bee.getNavigation().moveTo(this.targetPlayer, 1.4D);
+            this.bee.getNavigation().moveTo(this.targetPlayer, 0.35D);
         }
     }
 
@@ -52,11 +52,11 @@ public class CourierFlyToPlayerGoal extends Goal {
         // Turn face towards player
         this.bee.getLookControl().setLookAt(this.targetPlayer, 30.0F, 30.0F);
 
-        // Smooth 3D aerial propulsion towards player
+        // Smooth 3D aerial propulsion towards player (slowed down 4x for gentle, majestic flight)
         Vec3 dir = playerEye.subtract(beePos);
         double dist = Math.sqrt(distSqr);
         if (dist > 0.1) {
-            Vec3 moveVec = dir.normalize().scale(0.35D);
+            Vec3 moveVec = dir.normalize().scale(0.0875D);
             this.bee.setDeltaMovement(this.bee.getDeltaMovement().scale(0.75D).add(moveVec));
         }
 

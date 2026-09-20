@@ -28,6 +28,7 @@ import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,7 +47,8 @@ public class CourierBeeEntity extends Bee {
     private final List<ItemStack> deliveryItems = new ArrayList<>();
     private boolean isDelivered = false;
     private int deliveryTicks = 0;
-    private static final int MAX_DELIVERY_TICKS = 400; // 20 seconds fallback timeout
+    private static final int MAX_DELIVERY_TICKS = 800; // 40 seconds fallback timeout
+    private Vec3 departureDir = Vec3.ZERO;
 
     public CourierBeeEntity(EntityType<? extends Bee> entityType, Level level) {
         super(entityType, level);
@@ -56,8 +58,8 @@ public class CourierBeeEntity extends Bee {
     public static AttributeSupplier.Builder createAttributes() {
         return Bee.createAttributes()
                 .add(Attributes.MAX_HEALTH, 40.0D)
-                .add(Attributes.FLYING_SPEED, 0.8D)
-                .add(Attributes.MOVEMENT_SPEED, 0.35D)
+                .add(Attributes.FLYING_SPEED, 0.2D)     // Slowed down 4x from 0.8D for gentle delivery approach
+                .add(Attributes.MOVEMENT_SPEED, 0.0875D) // Slowed down 4x from 0.35D
                 .add(Attributes.FOLLOW_RANGE, 64.0D);
     }
 
@@ -152,13 +154,69 @@ public class CourierBeeEntity extends Bee {
         this.deliveryTicks++;
 
         if (this.isDelivered) {
-            // Ascend smoothly, spawn farewell poof particles and disappear
-            this.setDeltaMovement(this.getDeltaMovement().add(0, 0.06, 0));
-            if (this.deliveryTicks > 30) {
-                if (this.level() instanceof ServerLevel serverLevel) {
-                    serverLevel.sendParticles(ParticleTypes.POOF, getX(), getY() + 0.3, getZ(), 12, 0.2, 0.2, 0.2, 0.05);
+            this.setNoGravity(true);
+            if (!(this.level() instanceof ServerLevel serverLevel)) return;
+
+            // Phase 1: Back away gently from player (ticks 0 - 25, ~1.25s)
+            if (this.deliveryTicks <= 25) {
+                if (this.departureDir == null || this.departureDir.lengthSqr() < 0.001) {
+                    this.departureDir = new Vec3(0, 0, 1);
                 }
-                this.discard();
+                // Smoothly drift away from the player horizontally and slightly upward
+                Vec3 backMovement = this.departureDir.scale(0.12D).add(0, 0.03D, 0);
+                this.setDeltaMovement(this.getDeltaMovement().scale(0.8D).add(backMovement));
+
+                // Turn face in departure direction
+                float yaw = (float) (Math.atan2(-this.departureDir.x, this.departureDir.z) * (180.0D / Math.PI));
+                this.setYRot(yaw);
+                this.setYHeadRot(yaw);
+                this.setXRot(0.0F);
+
+                // Small gentle particles while backing away
+                if (this.deliveryTicks % 6 == 0) {
+                    serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, getX(), getY() + 0.2, getZ(), 1, 0.1, 0.1, 0.1, 0.02);
+                }
+            }
+            // Phase 2: Rocket launch into stratosphere with firework flight effects (ticks 26+)
+            else {
+                int launchTicks = this.deliveryTicks - 25;
+
+                // Pass cleanly through ceilings and blocks straight into the stratosphere
+                this.noPhysics = true;
+
+                if (launchTicks == 1) {
+                    // Firework rocket launch sound!
+                    serverLevel.playSound(null, getX(), getY(), getZ(),
+                            SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.NEUTRAL, 1.4F, 1.0F);
+                }
+
+                // Face straight up into the stratosphere
+                this.setXRot(-90.0F);
+
+                // Rapid firework rocket acceleration upwards
+                Vec3 current = this.getDeltaMovement();
+                double upwardSpeed = Math.min(0.25D + (launchTicks * 0.07D), 2.5D);
+                // Zero out horizontal drift so it launches vertically
+                this.setDeltaMovement(current.x * 0.65D, upwardSpeed, current.z * 0.65D);
+
+                // Firework particle exhaust under the bee (sparks, flames, smoke)
+                serverLevel.sendParticles(ParticleTypes.FIREWORK, getX(), getY() - 0.25, getZ(), 4, 0.06, 0.06, 0.06, 0.05);
+                serverLevel.sendParticles(ParticleTypes.FLAME, getX(), getY() - 0.25, getZ(), 2, 0.04, 0.04, 0.04, 0.02);
+                serverLevel.sendParticles(ParticleTypes.SMOKE, getX(), getY() - 0.3, getZ(), 2, 0.05, 0.05, 0.05, 0.01);
+
+                // Twinkle sound occasionally during rocket ascent
+                if (launchTicks % 10 == 0) {
+                    serverLevel.playSound(null, getX(), getY(), getZ(),
+                            SoundEvents.FIREWORK_ROCKET_TWINKLE, SoundSource.NEUTRAL, 0.9F, 1.2F);
+                }
+
+                // Stratosphere exit: reached max build height or 65 ticks (~3.2s) of high-speed ascent
+                if (launchTicks > 65 || this.getY() >= serverLevel.getMaxBuildHeight() - 5) {
+                    serverLevel.sendParticles(ParticleTypes.FIREWORK, getX(), getY(), getZ(), 20, 0.4, 0.4, 0.4, 0.12);
+                    serverLevel.playSound(null, getX(), getY(), getZ(),
+                            SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.NEUTRAL, 0.8F, 1.3F);
+                    this.discard();
+                }
             }
             return;
         }
@@ -175,10 +233,15 @@ public class CourierBeeEntity extends Bee {
             return;
         }
 
-        // Safety fallback timeout: if courier is stuck in walls/doors for > 20s, complete delivery immediately
+        // Safety fallback timeout: if courier is stuck in walls/doors for > 40s, complete delivery immediately
         if (this.deliveryTicks > MAX_DELIVERY_TICKS) {
             completeDelivery(target);
         }
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getAmbientSound() {
+        return this.isDelivered ? null : super.getAmbientSound();
     }
 
     /**
@@ -217,8 +280,22 @@ public class CourierBeeEntity extends Bee {
             }
         }
 
+        this.deliveryItems.clear();
+        this.entityData.set(DELIVERED_ITEM, ItemStack.EMPTY);
         this.isDelivered = true;
         this.deliveryTicks = 0;
+
+        // Compute departure direction (away from player horizontally)
+        Vec3 away = this.position().subtract(player.position());
+        away = new Vec3(away.x, 0, away.z);
+        if (away.lengthSqr() < 0.01) {
+            away = player.getLookAngle().scale(-1.0);
+            away = new Vec3(away.x, 0, away.z);
+            if (away.lengthSqr() < 0.01) {
+                away = new Vec3(0, 0, 1);
+            }
+        }
+        this.departureDir = away.normalize();
     }
 
     public void backupToDatabase() {
@@ -264,6 +341,10 @@ public class CourierBeeEntity extends Bee {
         }
         tag.putBoolean("IsDelivered", this.isDelivered);
         tag.putInt("DeliveryTicks", this.deliveryTicks);
+        if (this.departureDir != null) {
+            tag.putDouble("DepartureX", this.departureDir.x);
+            tag.putDouble("DepartureZ", this.departureDir.z);
+        }
 
         ListTag itemList = new ListTag();
         for (ItemStack st : this.deliveryItems) {
@@ -285,6 +366,9 @@ public class CourierBeeEntity extends Bee {
         }
         this.isDelivered = tag.getBoolean("IsDelivered");
         this.deliveryTicks = tag.getInt("DeliveryTicks");
+        if (tag.contains("DepartureX") && tag.contains("DepartureZ")) {
+            this.departureDir = new Vec3(tag.getDouble("DepartureX"), 0, tag.getDouble("DepartureZ"));
+        }
 
         this.deliveryItems.clear();
         if (tag.contains("DeliveryItems", Tag.TAG_LIST)) {
