@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Global Marketplace Tablet Screen.
@@ -101,6 +102,11 @@ public class MarketplaceScreen extends Screen {
     private String lastCompanyInvite = "";
     private int companyMemberPage = 0;
     private int companyLedgerPage = 0;
+    private UUID editingMemberUuid = null;
+    private String editingMemberName = "";
+    private double editingMemberSpent = 0.0;
+    private double editingMemberCurrentLimit = 0.0;
+    private EditBox editingMemberLimitInput;
 
     private String statusNotification = "";
     private boolean statusNotificationError = false;
@@ -2201,6 +2207,12 @@ public class MarketplaceScreen extends Screen {
             return super.keyPressed(keyCode, scanCode, modifiers);
         }
 
+        if (keyCode == 256 && editingMemberUuid != null) {
+            editingMemberUuid = null;
+            rebuildWidgets();
+            return true;
+        }
+
         if (this.minecraft != null && this.minecraft.options.keyInventory.matches(keyCode, scanCode)) {
             boolean textFocused = (searchBox != null && searchBox.isFocused())
                     || (bountyPriceBox != null && bountyPriceBox.isFocused())
@@ -2210,7 +2222,8 @@ public class MarketplaceScreen extends Screen {
                     || (auctionBuyoutBox != null && auctionBuyoutBox.isFocused())
                     || (companyNameInput != null && companyNameInput.isFocused())
                     || (companyAmountInput != null && companyAmountInput.isFocused())
-                    || (companyInviteInput != null && companyInviteInput.isFocused());
+                    || (companyInviteInput != null && companyInviteInput.isFocused())
+                    || (editingMemberLimitInput != null && editingMemberLimitInput.isFocused());
             if (!textFocused) {
                 this.onClose();
                 return true;
@@ -2306,18 +2319,30 @@ public class MarketplaceScreen extends Screen {
                     String roleToggleIcon = isManager ? "§7👤" : "§b👔";
                     String roleToggleTip = isManager ? AmmoraLang.guiStr("company.demote_tooltip") : AmmoraLang.guiStr("company.promote_tooltip");
 
-                    this.addRenderableWidget(Button.builder(Component.literal(roleToggleIcon), b -> {
-                        String newRole = isManager ? "MEMBER" : "MANAGER";
-                        PacketDistributor.sendToServer(ServerboundCompanyActionPayload.setRole(m.playerUuid(), newRole));
-                    }).bounds(mx + 138, cardY + 7, 20, 18)
-                    .tooltip(Tooltip.create(Component.literal(roleToggleTip)))
-                    .build());
+                    if (editingMemberUuid == null) {
+                        this.addRenderableWidget(Button.builder(Component.literal("§e✎"), b -> {
+                            editingMemberUuid = m.playerUuid();
+                            editingMemberName = m.playerName();
+                            editingMemberSpent = m.spentTodayCbx();
+                            editingMemberCurrentLimit = m.dailyLimitCbx();
+                            rebuildWidgets();
+                        }).bounds(mx + 116, cardY + 7, 18, 18)
+                        .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.limit_tooltip"))))
+                        .build());
 
-                    this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
-                        PacketDistributor.sendToServer(ServerboundCompanyActionPayload.kick(m.playerUuid()));
-                    }).bounds(mx + 160, cardY + 7, 20, 18)
-                    .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.kick_tooltip"))))
-                    .build());
+                        this.addRenderableWidget(Button.builder(Component.literal(roleToggleIcon), b -> {
+                            String newRole = isManager ? "MEMBER" : "MANAGER";
+                            PacketDistributor.sendToServer(ServerboundCompanyActionPayload.setRole(m.playerUuid(), newRole));
+                        }).bounds(mx + 137, cardY + 7, 18, 18)
+                        .tooltip(Tooltip.create(Component.literal(roleToggleTip)))
+                        .build());
+
+                        this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
+                            PacketDistributor.sendToServer(ServerboundCompanyActionPayload.kick(m.playerUuid()));
+                        }).bounds(mx + 158, cardY + 7, 20, 18)
+                        .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.kick_tooltip"))))
+                        .build());
+                    }
                 }
             }
         }
@@ -2364,6 +2389,47 @@ public class MarketplaceScreen extends Screen {
                 companyLedgerPage++;
                 rebuildWidgets();
             }).bounds(mx + mw - 32, my + 90, 18, 14).build());
+        }
+
+        if (editingMemberUuid != null) {
+            int dw = 250, dh = 125;
+            int dx = mx + (mw - dw) / 2;
+            int dy = my + (mh - dh) / 2;
+
+            editingMemberLimitInput = new EditBox(this.font, dx + 16, dy + 58, 68, 16, Component.literal("Limit"));
+            editingMemberLimitInput.setMaxLength(10);
+            editingMemberLimitInput.setValue(String.format(Locale.US, "%.0f", editingMemberCurrentLimit));
+            this.addRenderableWidget(editingMemberLimitInput);
+
+            // Preset buttons
+            this.addRenderableWidget(Button.builder(Component.literal("0"), b -> editingMemberLimitInput.setValue("0"))
+                    .bounds(dx + 88, dy + 58, 28, 16).build());
+            this.addRenderableWidget(Button.builder(Component.literal("100"), b -> editingMemberLimitInput.setValue("100"))
+                    .bounds(dx + 119, dy + 58, 36, 16).build());
+            this.addRenderableWidget(Button.builder(Component.literal("500"), b -> editingMemberLimitInput.setValue("500"))
+                    .bounds(dx + 158, dy + 58, 36, 16).build());
+            this.addRenderableWidget(Button.builder(Component.literal("1k"), b -> editingMemberLimitInput.setValue("1000"))
+                    .bounds(dx + 197, dy + 58, 36, 16).build());
+
+            // Save and Cancel buttons
+            this.addRenderableWidget(Button.builder(Component.literal("§a✔ " + AmmoraLang.guiStr("company.btn_save_limit")), b -> {
+                try {
+                    double val = Math.max(0.0, Double.parseDouble(editingMemberLimitInput.getValue().trim().replace(',', '.')));
+                    PacketDistributor.sendToServer(ServerboundCompanyActionPayload.setLimit(editingMemberUuid, val));
+                } catch (NumberFormatException ignored) {}
+                editingMemberUuid = null;
+                rebuildWidgets();
+            }).bounds(dx + 16, dy + 90, 104, 18).build());
+
+            this.addRenderableWidget(Button.builder(Component.literal("§c✖ " + AmmoraLang.guiStr("company.btn_cancel_limit")), b -> {
+                editingMemberUuid = null;
+                rebuildWidgets();
+            }).bounds(dx + 129, dy + 90, 104, 18).build());
+
+            this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
+                editingMemberUuid = null;
+                rebuildWidgets();
+            }).bounds(dx + dw - 20, dy + 4, 16, 14).build());
         }
     }
 
@@ -2474,6 +2540,23 @@ public class MarketplaceScreen extends Screen {
             tip.add(Component.literal("§7" + AmmoraLang.guiStr("company.info") + ": §e" + hoveredEntry.description()));
             tip.add(Component.literal("§8" + new Date(hoveredEntry.timestamp())));
             gg.renderComponentTooltip(this.font, tip, mouseX, mouseY);
+        }
+
+        if (editingMemberUuid != null) {
+            gg.fill(0, 0, this.width, this.height, 0xCC060910);
+            int dw = 250, dh = 125;
+            int dx = mx + (mw - dw) / 2;
+            int dy = my + (mh - dh) / 2;
+
+            gg.fill(dx, dy, dx + dw, dy + dh, COLOR_PANEL);
+            drawOutlinedBox(gg, dx, dy, dw, dh, COLOR_BORDER_CYAN);
+
+            gg.fill(dx, dy, dx + dw, dy + 22, COLOR_PANEL_HEADER);
+            drawOutlinedBox(gg, dx, dy, dw, 22, COLOR_BORDER_MUTED);
+
+            gg.drawString(this.font, "§6🏢 " + AmmoraLang.guiStr("company.limit_modal_title"), dx + 10, dy + 7, 0xFFFFFFFF);
+            gg.drawString(this.font, "§7" + AmmoraLang.guiStr("company.limit_modal_target") + ": §f" + truncate(editingMemberName, 120), dx + 16, dy + 28, 0xFFFFFFFF);
+            gg.drawString(this.font, "§8" + AmmoraLang.guiStr("company.limit_modal_spent") + ": §e" + String.format(Locale.US, "%.1f CBX", editingMemberSpent), dx + 16, dy + 42, 0xFFFFFFFF);
         }
     }
 

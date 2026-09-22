@@ -1,6 +1,7 @@
 package com.ammora.mod.network;
 
 import com.ammora.mod.AmmoraMod;
+import com.ammora.mod.core.CompanyInviteManager;
 import com.ammora.mod.core.MarketEngine;
 import com.ammora.mod.db.CompanyMemberRecord;
 import com.ammora.mod.db.CompanyRecord;
@@ -10,6 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -30,6 +32,8 @@ public final class CompanyPacketHandler {
                 case "DEPOSIT" -> handleDeposit(player, payload);
                 case "WITHDRAW" -> handleWithdraw(player, payload);
                 case "INVITE" -> handleInvite(player, payload);
+                case "ACCEPT_INVITE" -> handleAcceptInvite(player, payload);
+                case "DECLINE_INVITE" -> handleDeclineInvite(player, payload);
                 case "KICK" -> handleKick(player, payload);
                 case "SET_ROLE" -> handleSetRole(player, payload);
                 case "SET_LIMIT" -> handleSetLimit(player, payload);
@@ -132,6 +136,11 @@ public final class CompanyPacketHandler {
             return;
         }
 
+        if (targetName.equalsIgnoreCase(player.getName().getString())) {
+            EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_cannot_invite_self"), true);
+            return;
+        }
+
         ServerPlayer target = player.server.getPlayerList().getPlayerByName(targetName);
         if (target == null) {
             EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_player_not_found", targetName), true);
@@ -143,13 +152,69 @@ public final class CompanyPacketHandler {
             return;
         }
 
-        AmmoraMod.getMarketDAO().addCompanyMember(comp.getCompanyId(), target.getUUID(), target.getName().getString(), "MEMBER", 100.0);
-        AmmoraMod.getMarketDAO().recordCompanyLedger(comp.getCompanyId(), player.getUUID(), player.getName().getString(), "INVITE", 0.0, "Invited " + target.getName().getString());
+        if (CompanyInviteManager.getInstance().hasPendingInvite(target.getUUID(), comp.getCompanyId())) {
+            EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_invite_already_pending", targetName), true);
+            return;
+        }
 
-        target.sendSystemMessage(Component.translatable("message.ammora.company.invited_welcome", comp.getCompanyName()));
-        target.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+        CompanyInviteManager.getInstance().createInvite(target.getUUID(), comp.getCompanyId(), comp.getCompanyName(), player.getUUID(), player.getName().getString());
 
-        EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.member_invited_success", target.getName().getString()), false);
+        PacketDistributor.sendToPlayer(target, new ClientboundCompanyInvitePayload(comp.getCompanyId(), comp.getCompanyName(), player.getName().getString()));
+        target.sendSystemMessage(Component.translatable("message.ammora.company.invite_received", comp.getCompanyName(), player.getName().getString()));
+        target.level().playSound(null, target.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+
+        EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.invite_sent_waiting", target.getName().getString()), false);
+    }
+
+    private static void handleAcceptInvite(ServerPlayer player, ServerboundCompanyActionPayload payload) throws Exception {
+        String companyId = payload.companyName();
+        var invite = CompanyInviteManager.getInstance().getPendingInvite(player.getUUID());
+        if (invite == null || (companyId != null && !companyId.isEmpty() && !invite.companyId().equals(companyId))) {
+            player.sendSystemMessage(Component.translatable("message.ammora.company.invite_expired"));
+            EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_invite_expired"), true);
+            return;
+        }
+
+        CompanyInviteManager.getInstance().removeInvite(player.getUUID());
+
+        if (AmmoraMod.getMarketDAO().getPlayerCompany(player.getUUID()) != null) {
+            player.sendSystemMessage(Component.translatable("message.ammora.company.err_already_in_company"));
+            EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_already_in_company"), true);
+            return;
+        }
+
+        CompanyRecord comp = AmmoraMod.getMarketDAO().getCompany(invite.companyId());
+        if (comp == null) {
+            player.sendSystemMessage(Component.translatable("message.ammora.company.err_company_not_found"));
+            return;
+        }
+
+        AmmoraMod.getMarketDAO().addCompanyMember(comp.getCompanyId(), player.getUUID(), player.getName().getString(), "MEMBER", 100.0);
+        AmmoraMod.getMarketDAO().recordCompanyLedger(comp.getCompanyId(), player.getUUID(), player.getName().getString(), "JOIN", 0.0, player.getName().getString() + " accepted invitation");
+
+        player.sendSystemMessage(Component.translatable("message.ammora.company.invited_welcome", comp.getCompanyName()));
+        player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+
+        ServerPlayer inviter = player.server.getPlayerList().getPlayer(invite.inviterUuid());
+        if (inviter != null) {
+            inviter.sendSystemMessage(Component.translatable("message.ammora.company.invite_accepted_owner", player.getName().getString()));
+            inviter.level().playSound(null, inviter.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+            EscrowPacketHandler.sendMarketplaceData(inviter, AmmoraLang.notify("company.member_joined_success", player.getName().getString()), false);
+        }
+
+        EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.joined_success", comp.getCompanyName()), false);
+    }
+
+    private static void handleDeclineInvite(ServerPlayer player, ServerboundCompanyActionPayload payload) {
+        var invite = CompanyInviteManager.getInstance().removeInvite(player.getUUID());
+        if (invite != null) {
+            player.sendSystemMessage(Component.translatable("message.ammora.company.invite_declined_self"));
+            ServerPlayer inviter = player.server.getPlayerList().getPlayer(invite.inviterUuid());
+            if (inviter != null) {
+                inviter.sendSystemMessage(Component.translatable("message.ammora.company.invite_declined_owner", player.getName().getString()));
+                EscrowPacketHandler.sendMarketplaceData(inviter, AmmoraLang.notify("company.invite_declined_by", player.getName().getString()), true);
+            }
+        }
     }
 
     private static void handleKick(ServerPlayer player, ServerboundCompanyActionPayload payload) throws Exception {

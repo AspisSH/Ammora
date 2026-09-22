@@ -68,6 +68,12 @@ public class PacketHandler {
         );
 
         registrar.playToClient(
+                ClientboundCompanyInvitePayload.TYPE,
+                ClientboundCompanyInvitePayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> ClientPacketHandler.handleCompanyInvite(payload))
+        );
+
+        registrar.playToClient(
                 ClientboundTradeSyncPayload.TYPE,
                 ClientboundTradeSyncPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> ClientPacketHandler.handleTradeSync(payload))

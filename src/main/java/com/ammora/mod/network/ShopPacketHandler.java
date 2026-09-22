@@ -268,11 +268,11 @@ public final class ShopPacketHandler {
                     return;
                 }
                 buyerMember = AmmoraMod.getMarketDAO().getCompanyMember(buyerCompany.getCompanyId(), buyer.getUUID());
-                if (buyerMember == null || buyerMember.isMember()) {
+                if (buyerMember == null) {
                     if (payload.isRemote()) {
-                        EscrowPacketHandler.sendMarketplaceData(buyer, AmmoraLang.notify("company.err_withdraw_unauthorized"), true);
+                        EscrowPacketHandler.sendMarketplaceData(buyer, AmmoraLang.notify("company.err_not_in_company"), true);
                     } else {
-                        buyer.sendSystemMessage(Component.translatable("message.ammora.company.err_withdraw_unauthorized"));
+                        buyer.sendSystemMessage(Component.translatable("message.ammora.company.err_not_in_company"));
                     }
                     return;
                 }

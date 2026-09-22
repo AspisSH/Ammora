@@ -141,8 +141,8 @@ public final class AuctionPacketHandler {
                 return;
             }
             bidderMember = AmmoraMod.getMarketDAO().getCompanyMember(bidderCompany.getCompanyId(), player.getUUID());
-            if (bidderMember == null || bidderMember.isMember()) {
-                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_withdraw_unauthorized"), true);
+            if (bidderMember == null) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_not_in_company"), true);
                 return;
             }
             if (!bidderMember.canSpend(bidAmount)) {
@@ -224,8 +224,8 @@ public final class AuctionPacketHandler {
                 return;
             }
             buyerMember = AmmoraMod.getMarketDAO().getCompanyMember(buyerCompany.getCompanyId(), player.getUUID());
-            if (buyerMember == null || buyerMember.isMember()) {
-                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_withdraw_unauthorized"), true);
+            if (buyerMember == null) {
+                EscrowPacketHandler.sendMarketplaceData(player, AmmoraLang.notify("company.err_not_in_company"), true);
                 return;
             }
             if (!buyerMember.canSpend(buyout)) {

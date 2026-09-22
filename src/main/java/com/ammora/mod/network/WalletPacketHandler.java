@@ -192,8 +192,8 @@ public final class WalletPacketHandler {
                     return;
                 }
                 var mem = AmmoraMod.getMarketDAO().getCompanyMember(comp.getCompanyId(), player.getUUID());
-                if (mem == null || mem.isMember()) {
-                    sendColdWalletData(player, "key:company.err_withdraw_unauthorized", true);
+                if (mem == null) {
+                    sendColdWalletData(player, "key:company.err_not_in_company", true);
                     return;
                 }
                 if (!mem.canSpend(amount)) {

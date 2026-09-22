@@ -118,4 +118,9 @@ public class ClientPacketHandler {
             screen.setIncomingTradeInvite(payload.senderUuid(), payload.senderName());
         }
     }
+
+    public static void handleCompanyInvite(com.ammora.mod.network.ClientboundCompanyInvitePayload payload) {
+        Minecraft mc = Minecraft.getInstance();
+        mc.setScreen(new com.ammora.mod.client.gui.CompanyInviteScreen(payload.companyId(), payload.companyName(), payload.inviterName()));
+    }
 }

@@ -92,5 +92,13 @@ public record ServerboundCompanyActionPayload(
     public static ServerboundCompanyActionPayload dissolve() {
         return new ServerboundCompanyActionPayload("DISSOLVE", "", "", null, "", 0.0);
     }
+
+    public static ServerboundCompanyActionPayload acceptInvite(String companyId) {
+        return new ServerboundCompanyActionPayload("ACCEPT_INVITE", companyId != null ? companyId : "", "", null, "", 0.0);
+    }
+
+    public static ServerboundCompanyActionPayload declineInvite(String companyId) {
+        return new ServerboundCompanyActionPayload("DECLINE_INVITE", companyId != null ? companyId : "", "", null, "", 0.0);
+    }
 }
 

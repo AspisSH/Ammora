@@ -110,7 +110,7 @@ public class CompanyMemberRecord {
     public boolean canSpend(double amount) {
         if (amount <= 0.0) return false;
         if (isOwner()) return true;
-        if (!isManager()) return false; // Regular MEMBER cannot spend or withdraw company funds
+        if (dailyLimitCbx <= 0.0) return false;
         checkAndResetDailyLimit();
         return (spentTodayCbx + amount) <= (dailyLimitCbx + 0.0001);
     }
