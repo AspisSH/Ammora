@@ -1,7 +1,12 @@
 package com.ammora.mod.client;
 
 import com.ammora.mod.AmmoraMod;
+import com.ammora.mod.client.model.CourierAllayAccessoryModel;
+import com.ammora.mod.client.model.CourierBeeAccessoryModel;
+import com.ammora.mod.client.model.CourierPhantomAccessoryModel;
+import com.ammora.mod.client.renderer.CourierAllayRenderer;
 import com.ammora.mod.client.renderer.CourierBeeRenderer;
+import com.ammora.mod.client.renderer.CourierPhantomRenderer;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -16,5 +21,14 @@ public class AmmoraClientEvents {
     @SubscribeEvent
     public static void registerEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(AmmoraMod.COURIER_BEE.get(), CourierBeeRenderer::new);
+        event.registerEntityRenderer(AmmoraMod.COURIER_ALLAY.get(), CourierAllayRenderer::new);
+        event.registerEntityRenderer(AmmoraMod.COURIER_PHANTOM.get(), CourierPhantomRenderer::new);
+    }
+
+    @SubscribeEvent
+    public static void registerLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(CourierBeeAccessoryModel.LAYER_LOCATION, CourierBeeAccessoryModel::createBodyLayer);
+        event.registerLayerDefinition(CourierAllayAccessoryModel.LAYER_LOCATION, CourierAllayAccessoryModel::createBodyLayer);
+        event.registerLayerDefinition(CourierPhantomAccessoryModel.LAYER_LOCATION, CourierPhantomAccessoryModel::createBodyLayer);
     }
 }

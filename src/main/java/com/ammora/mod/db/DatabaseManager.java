@@ -475,6 +475,24 @@ public class DatabaseManager {
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_loans_status ON p2p_loans (status, expires_at);");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_loans_borrower ON p2p_loans (borrower_uuid, status);");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_loans_lender ON p2p_loans (lender_uuid, status);");
+
+            // Player Courier Customization & Unlock System
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS player_courier_settings (
+                    player_uuid TEXT PRIMARY KEY,
+                    active_courier TEXT NOT NULL DEFAULT 'BEE'
+                );
+            """);
+
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS player_couriers (
+                    player_uuid TEXT NOT NULL,
+                    courier_id TEXT NOT NULL,
+                    unlocked_at INTEGER NOT NULL,
+                    PRIMARY KEY (player_uuid, courier_id)
+                );
+            """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_player_couriers ON player_couriers (player_uuid);");
         }
     }
 }

@@ -13,7 +13,9 @@ import com.ammora.mod.core.events.MarketEvent;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -1318,10 +1320,10 @@ public class MarketDAO {
             ps.setString(1, tx.getTxId());
             ps.setString(2, tx.getTxType());
             ps.setString(3, tx.getShopId());
-            ps.setString(4, tx.getBuyerUuid().toString());
-            ps.setString(5, tx.getBuyerName());
-            ps.setString(6, tx.getSellerUuid().toString());
-            ps.setString(7, tx.getSellerName());
+            ps.setString(4, tx.getBuyerUuid() != null ? tx.getBuyerUuid().toString() : "");
+            ps.setString(5, tx.getBuyerName() != null ? tx.getBuyerName() : "");
+            ps.setString(6, tx.getSellerUuid() != null ? tx.getSellerUuid().toString() : "");
+            ps.setString(7, tx.getSellerName() != null ? tx.getSellerName() : "");
             ps.setString(8, tx.getItemId());
             ps.setString(9, tx.getItemName());
             ps.setInt(10, tx.getAmount());
@@ -2147,4 +2149,91 @@ public class MarketDAO {
                 rs.getString("status")
         );
     }
+
+    // ==========================================
+    // COURIER CUSTOMIZATION SYSTEM
+    // ==========================================
+
+    public String getActiveCourier(UUID playerUuid) {
+        if (playerUuid == null) return "BEE";
+        String sql = "SELECT active_courier FROM player_courier_settings WHERE player_uuid = ? LIMIT 1;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, playerUuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String active = rs.getString("active_courier");
+                    if (active != null && !active.isBlank()) {
+                        return active;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            AmmoraMod.LOGGER.error("Failed to fetch active courier for player " + playerUuid, e);
+        }
+        return "BEE";
+    }
+
+    public void setActiveCourier(UUID playerUuid, String courierId) throws SQLException {
+        if (playerUuid == null || courierId == null) return;
+        String sql = """
+            INSERT INTO player_courier_settings (player_uuid, active_courier)
+            VALUES (?, ?)
+            ON CONFLICT(player_uuid) DO UPDATE SET active_courier = excluded.active_courier;
+        """;
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, playerUuid.toString());
+            ps.setString(2, courierId.toUpperCase(Locale.ROOT));
+            ps.executeUpdate();
+        }
+    }
+
+    public List<String> getUnlockedCouriers(UUID playerUuid) {
+        Set<String> unlocked = new LinkedHashSet<>();
+        unlocked.add("BEE"); // Bee is always unlocked by default
+        if (playerUuid == null) return new ArrayList<>(unlocked);
+
+        String sql = "SELECT courier_id FROM player_couriers WHERE player_uuid = ?;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, playerUuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String id = rs.getString("courier_id");
+                    if (id != null && !id.isBlank()) {
+                        unlocked.add(id.toUpperCase(Locale.ROOT));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            AmmoraMod.LOGGER.error("Failed to fetch unlocked couriers for player " + playerUuid, e);
+        }
+        return new ArrayList<>(unlocked);
+    }
+
+    public boolean isCourierUnlocked(UUID playerUuid, String courierId) {
+        if ("BEE".equalsIgnoreCase(courierId)) return true;
+        if (playerUuid == null || courierId == null) return false;
+        String sql = "SELECT 1 FROM player_couriers WHERE player_uuid = ? AND courier_id = ? LIMIT 1;";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, playerUuid.toString());
+            ps.setString(2, courierId.toUpperCase(Locale.ROOT));
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            AmmoraMod.LOGGER.error("Failed to check if courier unlocked for player " + playerUuid, e);
+        }
+        return false;
+    }
+
+    public void unlockCourier(UUID playerUuid, String courierId, long timestamp) throws SQLException {
+        if (playerUuid == null || courierId == null) return;
+        String sql = "INSERT OR IGNORE INTO player_couriers (player_uuid, courier_id, unlocked_at) VALUES (?, ?, ?);";
+        try (Connection conn = dbManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, playerUuid.toString());
+            ps.setString(2, courierId.toUpperCase(Locale.ROOT));
+            ps.setLong(3, timestamp);
+            ps.executeUpdate();
+        }
+    }
 }
+

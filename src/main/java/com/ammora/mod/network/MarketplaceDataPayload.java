@@ -25,6 +25,8 @@ public record MarketplaceDataPayload(
         List<DeliveryBufferItem> deliveries,
         List<LiveAuctionItem> auctions,
         CompanyData company,
+        String activeCourier,
+        List<String> unlockedCouriers,
         String statusMessage,
         boolean isError
 ) implements CustomPacketPayload {
@@ -39,10 +41,27 @@ public record MarketplaceDataPayload(
             List<MarketTxItem> transactions,
             List<DeliveryBufferItem> deliveries,
             List<LiveAuctionItem> auctions,
+            CompanyData company,
             String statusMessage,
             boolean isError
     ) {
-        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, auctions, CompanyData.none(), statusMessage, isError);
+        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, auctions, company, "BEE", List.of("BEE"), statusMessage, isError);
+    }
+
+    public MarketplaceDataPayload(
+            double balanceCbx,
+            int repLevel,
+            List<MarketplaceSlotItem> catalogSlots,
+            List<MarketplaceShopItem> shops,
+            List<BuyRequestItem> buyRequests,
+            List<CommunityQuestItem> quests,
+            List<MarketTxItem> transactions,
+            List<DeliveryBufferItem> deliveries,
+            List<LiveAuctionItem> auctions,
+            String statusMessage,
+            boolean isError
+    ) {
+        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, auctions, CompanyData.none(), "BEE", List.of("BEE"), statusMessage, isError);
     }
 
     public MarketplaceDataPayload(
@@ -274,6 +293,8 @@ public record MarketplaceDataPayload(
                 readDeliveries(buf),
                 readAuctions(buf),
                 readCompanyData(buf),
+                buf.readUtf(),
+                readUnlockedCouriers(buf),
                 buf.readUtf(),
                 buf.readBoolean()
         );
@@ -537,8 +558,30 @@ public record MarketplaceDataPayload(
             }
         }
 
+        buf.writeUtf(activeCourier != null ? activeCourier : "BEE");
+        writeUnlockedCouriers(buf, unlockedCouriers);
         buf.writeUtf(statusMessage != null ? statusMessage : "");
         buf.writeBoolean(isError);
+    }
+
+    private static List<String> readUnlockedCouriers(FriendlyByteBuf buf) {
+        int count = buf.readVarInt();
+        List<String> list = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            list.add(buf.readUtf());
+        }
+        return list;
+    }
+
+    private static void writeUnlockedCouriers(FriendlyByteBuf buf, List<String> list) {
+        if (list == null) {
+            buf.writeVarInt(0);
+            return;
+        }
+        buf.writeVarInt(list.size());
+        for (String s : list) {
+            buf.writeUtf(s != null ? s : "");
+        }
     }
 
     private static List<DeliveryBufferItem> readDeliveries(FriendlyByteBuf buf) {

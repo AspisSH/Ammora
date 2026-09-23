@@ -8,6 +8,7 @@ import com.ammora.mod.db.PlayerAccount;
 import com.ammora.mod.util.AmmoraLang;
 import com.ammora.mod.util.InventoryHelper;
 import com.ammora.mod.entity.CourierBeeEntity;
+import com.ammora.mod.entity.CourierManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -463,55 +464,6 @@ public final class ShopPacketHandler {
     }
 
     private static void dispatchCourierBee(ServerPlayer buyer, List<ItemStack> stacks, com.ammora.mod.db.ShopSlotRecord slot) {
-        ServerLevel level = buyer.serverLevel();
-        Vec3 playerPos = buyer.position();
-
-        // Calculate spawn position 12-16 blocks away at a dynamic angle
-        double rotRad = Math.toRadians(buyer.getYRot() + 180 + (level.random.nextDouble() - 0.5) * 60.0);
-        double distance = 12.0 + level.random.nextDouble() * 3.0;
-        double spawnX = playerPos.x - Math.sin(rotRad) * distance;
-        double spawnZ = playerPos.z + Math.cos(rotRad) * distance;
-        double spawnY = playerPos.y + 1.5 + level.random.nextDouble() * 2.0;
-
-        BlockPos testPos = BlockPos.containing(spawnX, spawnY, spawnZ);
-        if (!level.getBlockState(testPos).isAir()) {
-            // If obstructed, spawn overhead in clear area
-            spawnX = playerPos.x + (level.random.nextDouble() - 0.5) * 4.0;
-            spawnZ = playerPos.z + (level.random.nextDouble() - 0.5) * 4.0;
-            spawnY = playerPos.y + 2.5;
-        }
-
-        CourierBeeEntity bee = AmmoraMod.COURIER_BEE.get().create(level);
-        if (bee != null) {
-            bee.moveTo(spawnX, spawnY, spawnZ, buyer.getYRot(), 0.0F);
-            bee.setDeliveryOrder(buyer, stacks);
-            level.addFreshEntity(bee);
-
-            level.playSound(null, buyer.blockPosition(), SoundEvents.BEE_LOOP, SoundSource.PLAYERS, 0.8F, 1.2F);
-            buyer.displayClientMessage(AmmoraLang.message("courier.dispatched"), true);
-        } else {
-            // Direct fallback in case entity creation is disallowed
-            for (ItemStack stack : stacks) {
-                if (!buyer.getInventory().add(stack)) {
-                    String nbt = "";
-                    try {
-                        Tag t = stack.saveOptional(buyer.registryAccess());
-                        if (t != null) nbt = t.getAsString();
-                    } catch (Exception ignored) {}
-                    try {
-                        AmmoraMod.getMarketDAO().saveUnclaimedDelivery(
-                                UUID.randomUUID().toString(),
-                                buyer.getUUID(),
-                                slot.getItemId(),
-                                stack.getCount(),
-                                System.currentTimeMillis(),
-                                nbt
-                        );
-                    } catch (Exception e) {
-                        AmmoraMod.LOGGER.error("Failed to save delivery fallback", e);
-                    }
-                }
-            }
-        }
+        CourierManager.dispatchToPlayer(buyer, stacks);
     }
 }

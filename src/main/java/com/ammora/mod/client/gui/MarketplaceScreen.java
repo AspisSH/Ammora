@@ -1,5 +1,7 @@
 package com.ammora.mod.client.gui;
 
+import com.ammora.mod.entity.CourierType;
+import com.ammora.mod.network.ServerboundCourierSkinPayload;
 import com.ammora.mod.network.MarketplaceDataPayload;
 import com.ammora.mod.util.AmmoraLang;
 import com.ammora.mod.network.ServerboundAuctionActionPayload;
@@ -73,6 +75,9 @@ public class MarketplaceScreen extends Screen {
     private String lastBountyPrice = "50.0";
     private String lastBountyCount = "1";
     private ItemStack selectedRfqItem = ItemStack.EMPTY;
+
+    // Courier Customization Modal state
+    private boolean showCourierModal = false;
 
     // JEI-style Item Picker Modal for RFQ
     private boolean showItemPickerModal = false;
@@ -240,22 +245,38 @@ public class MarketplaceScreen extends Screen {
             return;
         }
 
+        if (showCourierModal) {
+            initCourierModalWidgets();
+            return;
+        }
+
         dynamicCatalogButtons.clear();
 
         int mw = 400, mh = 260;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
+        // Courier Service Customization Modal Button (positioned safely after the title text)
+        int titleWidth = this.font.width("§b✦ " + AmmoraLang.guiStr("market.title") + " ✦");
+        int courierBtnX = mx + 10 + titleWidth + 6;
+        int courierBtnW = 20;
+        this.addRenderableWidget(Button.builder(Component.literal("🚚"), b -> {
+            showCourierModal = true;
+            rebuildWidgets();
+        }).bounds(courierBtnX, my + 4, courierBtnW, 16)
+        .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("courier.tooltip_couriers"))))
+        .build());
+
         // Header Account Toggle Button (if player has company)
         var comp = (data != null) ? data.company() : null;
         if (comp != null && comp.hasCompany()) {
             String compName = comp.companyName();
-            if (this.font.width(compName) > 46) {
-                compName = this.font.plainSubstrByWidth(compName, 40) + "..";
+            if (this.font.width(compName) > 42) {
+                compName = this.font.plainSubstrByWidth(compName, 36) + "..";
             }
             String toggleText = useCompanyAccount ? "§6🏢 " + compName : "§b👤 " + AmmoraLang.guiStr("account.personal");
-            int toggleW = Math.max(54, Math.min(76, this.font.width(toggleText) + 10));
-            int toggleX = mx + 130;
+            int toggleW = Math.max(54, Math.min(74, this.font.width(toggleText) + 10));
+            int toggleX = courierBtnX + courierBtnW + 4;
             this.addRenderableWidget(Button.builder(Component.literal(toggleText), b -> {
                 useCompanyAccount = !useCompanyAccount;
                 rebuildWidgets();
@@ -640,18 +661,26 @@ public class MarketplaceScreen extends Screen {
             var deliveries = (data != null && data.deliveries() != null) ? data.deliveries() : List.<MarketplaceDataPayload.DeliveryBufferItem>of();
             int totalPages = Math.max(1, (deliveries.size() + 9) / 10);
 
+            // Courier Customization Shortcut Button in Delivery Tab
+            this.addRenderableWidget(Button.builder(Component.literal("🚚 " + AmmoraLang.guiStr("courier.btn_couriers")), b -> {
+                showCourierModal = true;
+                rebuildWidgets();
+            }).bounds(mx + 10, my + 62, 74, 16)
+            .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("courier.tooltip_couriers"))))
+            .build());
+
             if (deliveryPage > 0) {
                 this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
                     deliveryPage--;
                     rebuildWidgets();
-                }).bounds(mx + 194, my + 62, 20, 16).build());
+                }).bounds(mx + 204, my + 62, 20, 16).build());
             }
 
             if (deliveryPage < totalPages - 1) {
                 this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
                     deliveryPage++;
                     rebuildWidgets();
-                }).bounds(mx + 216, my + 62, 20, 16).build());
+                }).bounds(mx + 226, my + 62, 20, 16).build());
             }
 
             // Big Action Button "Claim All"
@@ -1192,6 +1221,24 @@ public class MarketplaceScreen extends Screen {
             return;
         }
 
+        if (showCourierModal) {
+            // Full screen solid dark dim overlay to isolate modal
+            gg.fill(0, 0, this.width, this.height, 0xEE04070E);
+            renderCourierModal(gg, mouseX, mouseY);
+            super.render(gg, mouseX, mouseY, partialTicks);
+            if (System.currentTimeMillis() < notificationExpireTime && !statusNotification.isEmpty()) {
+                int notifW = this.font.width(statusNotification) + 20;
+                int nx = (this.width - notifW) / 2;
+                int ny = (this.height - 248) / 2 + 248 - 24;
+                int boxBg = statusNotificationError ? 0xE6501010 : 0xE60E3A20;
+                int boxBorder = statusNotificationError ? COLOR_RED : COLOR_GREEN;
+                gg.fill(nx, ny, nx + notifW, ny + 18, boxBg);
+                drawOutlinedBox(gg, nx, ny, notifW, 18, boxBorder);
+                gg.drawCenteredString(this.font, statusNotification, nx + notifW / 2, ny + 5, 0xFFFFFFFF);
+            }
+            return;
+        }
+
         // Background
         gg.fill(mx, my, mx + mw, my + mh, COLOR_BG);
         drawOutlinedBox(gg, mx, my, mw, mh, COLOR_BORDER_CYAN);
@@ -1249,7 +1296,7 @@ public class MarketplaceScreen extends Screen {
         }
 
         // Catalog Tooltip
-        if (!showItemPickerModal && !showCreateQuestModal && !showCreateAuctionModal && selectedQuest == null && hoveredCatalogItem != null) {
+        if (!showItemPickerModal && !showCreateQuestModal && !showCreateAuctionModal && !showCourierModal && selectedQuest == null && hoveredCatalogItem != null) {
             List<Component> tooltip = new ArrayList<>();
             tooltip.add(Component.literal("§e" + hoveredCatalogItem.displayName()));
             tooltip.add(Component.literal("§7ID: §8" + hoveredCatalogItem.itemId()));
@@ -1560,7 +1607,7 @@ public class MarketplaceScreen extends Screen {
         var deliveries = (data != null && data.deliveries() != null) ? data.deliveries() : List.<MarketplaceDataPayload.DeliveryBufferItem>of();
         int totalPages = Math.max(1, (deliveries.size() + 9) / 10);
 
-        gg.drawString(this.font, AmmoraLang.guiStr("market.buffer_header", deliveries.size(), (deliveryPage + 1), totalPages), mx + 12, my + 66, 0xFFFFFFFF);
+        gg.drawString(this.font, AmmoraLang.guiStr("market.buffer_header", deliveries.size(), (deliveryPage + 1), totalPages), mx + 90, my + 66, 0xFFFFFFFF);
 
         int startIndex = deliveryPage * 10;
         MarketplaceDataPayload.DeliveryBufferItem hoveredItem = null;
@@ -2083,6 +2130,19 @@ public class MarketplaceScreen extends Screen {
             return super.mouseClicked(mouseX, mouseY, button);
         }
 
+        if (showCourierModal) {
+            int cmw = 380, cmh = 248;
+            int cmx = (this.width - cmw) / 2;
+            int cmy = (this.height - cmh) / 2;
+
+            if (mouseX < cmx || mouseX > cmx + cmw || mouseY < cmy || mouseY > cmy + cmh) {
+                showCourierModal = false;
+                rebuildWidgets();
+                return true;
+            }
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+
         if (showItemPickerModal) {
             int modalW = 280, modalH = 190;
             int modalX = (this.width - modalW) / 2;
@@ -2148,6 +2208,15 @@ public class MarketplaceScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (showCourierModal) {
+            if (keyCode == 256) {
+                showCourierModal = false;
+                rebuildWidgets();
+                return true;
+            }
+            return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+
         if (showCreateAuctionModal) {
             if (keyCode == 256) {
                 showCreateAuctionModal = false;
@@ -2557,6 +2626,114 @@ public class MarketplaceScreen extends Screen {
             gg.drawString(this.font, "§6🏢 " + AmmoraLang.guiStr("company.limit_modal_title"), dx + 10, dy + 7, 0xFFFFFFFF);
             gg.drawString(this.font, "§7" + AmmoraLang.guiStr("company.limit_modal_target") + ": §f" + truncate(editingMemberName, 120), dx + 16, dy + 28, 0xFFFFFFFF);
             gg.drawString(this.font, "§8" + AmmoraLang.guiStr("company.limit_modal_spent") + ": §e" + String.format(Locale.US, "%.1f CBX", editingMemberSpent), dx + 16, dy + 42, 0xFFFFFFFF);
+        }
+    }
+
+    private void initCourierModalWidgets() {
+        int cmw = 380, cmh = 248;
+        int cmx = (this.width - cmw) / 2;
+        int cmy = (this.height - cmh) / 2;
+
+        // Close button
+        this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
+            showCourierModal = false;
+            rebuildWidgets();
+        }).bounds(cmx + cmw - 22, cmy + 4, 18, 16).build());
+
+        CourierType[] types = CourierType.values();
+        for (int i = 0; i < types.length; i++) {
+            CourierType type = types[i];
+            int cardY = cmy + 40 + i * 50;
+            int cardX = cmx + 8;
+            int cardW = cmw - 16;
+            int btnW = 96;
+            int btnH = 20;
+            int btnX = cardX + cardW - btnW - 6;
+            int btnY = cardY + 13;
+
+            boolean isActive = data != null && type.getId().equalsIgnoreCase(data.activeCourier());
+            boolean isUnlocked = (type == CourierType.BEE) ||
+                    (data != null && data.unlockedCouriers() != null && data.unlockedCouriers().contains(type.getId()));
+
+            if (isActive) {
+                Button btn = Button.builder(Component.literal("§a✔ " + AmmoraLang.guiStr("courier.active")), b -> {})
+                        .bounds(btnX, btnY, btnW, btnH)
+                        .build();
+                btn.active = false;
+                this.addRenderableWidget(btn);
+            } else if (isUnlocked) {
+                this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("courier.select")), b -> {
+                    PacketDistributor.sendToServer(ServerboundCourierSkinPayload.select(type.getId()));
+                }).bounds(btnX, btnY, btnW, btnH).build());
+            } else {
+                int price = (int) type.getPriceCbx();
+                this.addRenderableWidget(Button.builder(Component.literal("§6" + AmmoraLang.guiStr("courier.unlock", price)), b -> {
+                    PacketDistributor.sendToServer(ServerboundCourierSkinPayload.buy(type.getId()));
+                }).bounds(btnX, btnY, btnW, btnH)
+                .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("courier.buy_tooltip", price))))
+                .build());
+            }
+        }
+    }
+
+    private void renderCourierModal(GuiGraphics gg, int mouseX, int mouseY) {
+        int cmw = 380, cmh = 248;
+        int cmx = (this.width - cmw) / 2;
+        int cmy = (this.height - cmh) / 2;
+
+        gg.fill(cmx, cmy, cmx + cmw, cmy + cmh, COLOR_BG);
+        drawOutlinedBox(gg, cmx, cmy, cmw, cmh, COLOR_BORDER_CYAN);
+
+        gg.fill(cmx + 1, cmy + 1, cmx + cmw - 1, cmy + 24, COLOR_PANEL_HEADER);
+        gg.hLine(cmx + 1, cmx + cmw - 1, cmy + 24, COLOR_BORDER_MUTED);
+
+        gg.drawString(this.font, "§6🚚 " + AmmoraLang.guiStr("courier.service_title"), cmx + 10, cmy + 8, 0xFFFFFFFF);
+        gg.drawString(this.font, "§7" + AmmoraLang.guiStr("courier.service_subtitle"), cmx + 10, cmy + 28, COLOR_TEXT_MUTED);
+
+        CourierType[] types = CourierType.values();
+        for (int i = 0; i < types.length; i++) {
+            CourierType type = types[i];
+            int cardY = cmy + 40 + i * 50;
+            int cardX = cmx + 8;
+            int cardW = cmw - 16;
+            int btnW = 96;
+            int btnX = cardX + cardW - btnW - 6;
+
+            boolean isActive = data != null && type.getId().equalsIgnoreCase(data.activeCourier());
+            boolean isUnlocked = (type == CourierType.BEE) ||
+                    (data != null && data.unlockedCouriers() != null && data.unlockedCouriers().contains(type.getId()));
+
+            int cardBg = isActive ? 0xF00A1A14 : COLOR_PANEL;
+            int cardBorder = isActive ? COLOR_GREEN : COLOR_BORDER_MUTED;
+
+            gg.fill(cardX, cardY, cardX + cardW, cardY + 46, cardBg);
+            drawOutlinedBox(gg, cardX, cardY, cardW, 46, cardBorder);
+
+            gg.renderFakeItem(new ItemStack(type.getIconItem()), cardX + 6, cardY + 15);
+
+            int textX = cardX + 28;
+            int maxTextW = btnX - textX - 6;
+
+            String titlePrefix = isActive ? "§a" : "§e";
+            gg.drawString(this.font, titlePrefix + AmmoraLang.guiStr(type.getNameKey()), textX, cardY + 6, 0xFFFFFFFF);
+
+            String desc = AmmoraLang.guiStr(type.getDescKey());
+            if (this.font.width(desc) > maxTextW) {
+                desc = this.font.plainSubstrByWidth(desc, maxTextW - 6) + "..";
+            }
+            gg.drawString(this.font, "§7" + desc, textX, cardY + 18, COLOR_TEXT_MUTED);
+
+            String badge;
+            if (isActive) {
+                badge = "§a✓ " + AmmoraLang.guiStr("courier.active");
+            } else if (type == CourierType.BEE) {
+                badge = "§b✦ " + AmmoraLang.guiStr("courier.free");
+            } else if (isUnlocked) {
+                badge = "§b✦ " + AmmoraLang.guiStr("courier.unlocked_status");
+            } else {
+                badge = "§6● " + AmmoraLang.guiStr("courier.price_label", String.format(Locale.US, "%.0f", type.getPriceCbx()));
+            }
+            gg.drawString(this.font, badge, textX, cardY + 30, 0xFFFFFFFF);
         }
     }
 

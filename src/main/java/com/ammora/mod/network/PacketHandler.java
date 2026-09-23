@@ -322,6 +322,16 @@ public class PacketHandler {
                     }
                 })
         );
+
+        registrar.playToServer(
+                ServerboundCourierSkinPayload.TYPE,
+                ServerboundCourierSkinPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer serverPlayer) {
+                        EscrowPacketHandler.handleCourierSkinAction(serverPlayer, payload);
+                    }
+                })
+        );
     }
 
     // ----------------------------------------------------

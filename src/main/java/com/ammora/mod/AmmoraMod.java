@@ -164,6 +164,22 @@ public class AmmoraMod {
                             .build("courier_bee")
             );
 
+    public static final DeferredHolder<EntityType<?>, EntityType<com.ammora.mod.entity.CourierAllayEntity>> COURIER_ALLAY =
+            ENTITY_TYPES.register("courier_allay", () ->
+                    EntityType.Builder.of(com.ammora.mod.entity.CourierAllayEntity::new, MobCategory.MISC)
+                            .sized(0.6F, 0.6F)
+                            .clientTrackingRange(8)
+                            .build("courier_allay")
+            );
+
+    public static final DeferredHolder<EntityType<?>, EntityType<com.ammora.mod.entity.CourierPhantomEntity>> COURIER_PHANTOM =
+            ENTITY_TYPES.register("courier_phantom", () ->
+                    EntityType.Builder.of(com.ammora.mod.entity.CourierPhantomEntity::new, MobCategory.MISC)
+                            .sized(0.9F, 0.5F)
+                            .clientTrackingRange(8)
+                            .build("courier_phantom")
+            );
+
     // Creative Tab
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> EXCHANGE_TAB = CREATIVE_MODE_TABS.register(
             "ammora_tab",
@@ -218,6 +234,8 @@ public class AmmoraMod {
 
     private void registerEntityAttributes(net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent event) {
         event.put(COURIER_BEE.get(), com.ammora.mod.entity.CourierBeeEntity.createAttributes().build());
+        event.put(COURIER_ALLAY.get(), com.ammora.mod.entity.CourierAllayEntity.createAttributes().build());
+        event.put(COURIER_PHANTOM.get(), com.ammora.mod.entity.CourierPhantomEntity.createAttributes().build());
     }
 
     private void onRegister(net.neoforged.neoforge.registries.RegisterEvent event) {

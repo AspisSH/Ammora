@@ -6,6 +6,7 @@ import com.ammora.mod.db.BuyRequestRecord;
 import com.ammora.mod.db.CommunityQuestRecord;
 import com.ammora.mod.db.MarketTxRecord;
 import com.ammora.mod.db.PlayerAccount;
+import com.ammora.mod.entity.CourierType;
 import com.ammora.mod.util.AmmoraLang;
 import com.ammora.mod.util.InventoryHelper;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -237,8 +238,16 @@ public final class EscrowPacketHandler {
                 AmmoraMod.LOGGER.error("Failed to load company data for player " + player.getName().getString(), e);
             }
 
+            String activeCourier = "BEE";
+            List<String> unlockedCouriers = List.of("BEE");
+            if (AmmoraMod.getMarketDAO() != null) {
+                activeCourier = AmmoraMod.getMarketDAO().getActiveCourier(player.getUUID());
+                unlockedCouriers = AmmoraMod.getMarketDAO().getUnlockedCouriers(player.getUUID());
+            }
+
             PacketDistributor.sendToPlayer(player, new MarketplaceDataPayload(
-                    balance, repLevel, catalog, shops, buyReqs, questItems, txs, deliveries, auctionItems, companyData, statusMsg, isError
+                    balance, repLevel, catalog, shops, buyReqs, questItems, txs, deliveries, auctionItems, companyData,
+                    activeCourier, unlockedCouriers, statusMsg, isError
             ));
         } catch (Exception e) {
             AmmoraMod.LOGGER.error("Failed to send marketplace data to " + player.getName().getString(), e);
@@ -633,6 +642,64 @@ public final class EscrowPacketHandler {
             sendMarketplaceData(player, msg, isErr);
         } catch (Exception e) {
             AmmoraMod.LOGGER.error("Failed to claim delivery for " + player.getName().getString(), e);
+        }
+    }
+
+    public static void handleCourierSkinAction(ServerPlayer player, ServerboundCourierSkinPayload payload) {
+        if (AmmoraMod.getMarketDAO() == null) return;
+        try {
+            CourierType type = CourierType.fromId(payload.courierId());
+            UUID uuid = player.getUUID();
+
+            if ("BUY".equalsIgnoreCase(payload.action())) {
+                if (AmmoraMod.getMarketDAO().isCourierUnlocked(uuid, type.getId())) {
+                    sendMarketplaceData(player, AmmoraLang.notify("courier.already_unlocked"), true);
+                    return;
+                }
+
+                double price = type.getPriceCbx();
+                if (price > 0.0) {
+                    PlayerAccount acc = AmmoraMod.getMarketDAO().getAccount(uuid, player.getName().getString());
+                    if (acc == null || acc.getBalanceCbx() < price) {
+                        sendMarketplaceData(player, AmmoraLang.notify("courier.insufficient_funds", MarketEngine.round2(price)), true);
+                        return;
+                    }
+                    acc.withdraw(price);
+                    AmmoraMod.getMarketDAO().saveAccount(acc);
+                    AmmoraMod.getMarketDAO().recordMarketTransaction(new MarketTxRecord(
+                            UUID.randomUUID().toString(),
+                            "COURIER_UNLOCK",
+                            "",
+                            uuid,
+                            player.getName().getString(),
+                            new UUID(0L, 0L),
+                            "SYSTEM",
+                            "ammora:courier_" + type.getId().toLowerCase(Locale.ROOT),
+                            "Courier: " + type.getId(),
+                            1,
+                            price,
+                            0.0,
+                            System.currentTimeMillis()
+                    ));
+                }
+
+                AmmoraMod.getMarketDAO().unlockCourier(uuid, type.getId(), System.currentTimeMillis());
+                AmmoraMod.getMarketDAO().setActiveCourier(uuid, type.getId());
+
+                player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.5F);
+                sendMarketplaceData(player, AmmoraLang.notify("courier.unlocked", AmmoraLang.guiStr(type.getNameKey())), false);
+            } else if ("SELECT".equalsIgnoreCase(payload.action())) {
+                if (!AmmoraMod.getMarketDAO().isCourierUnlocked(uuid, type.getId())) {
+                    sendMarketplaceData(player, AmmoraLang.notify("courier.not_unlocked"), true);
+                    return;
+                }
+
+                AmmoraMod.getMarketDAO().setActiveCourier(uuid, type.getId());
+                player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+                sendMarketplaceData(player, AmmoraLang.notify("courier.selected", AmmoraLang.guiStr(type.getNameKey())), false);
+            }
+        } catch (Exception e) {
+            AmmoraMod.LOGGER.error("Failed to handle courier skin action for " + player.getName().getString(), e);
         }
     }
 }
