@@ -194,23 +194,44 @@ public class MarketEventManager {
                 template = templatePool.get(random.nextInt(templatePool.size()));
             }
 
-            MarketEvent newEvent = new MarketEvent(
-                    template.getId(),
-                    template.getTitle(),
-                    template.getTitleKey(),
-                    template.getDescription(),
-                    template.getDescriptionKey(),
-                    template.getAffectedResourceId(),
-                    template.getPriceMultiplier(),
-                    template.getWeight(),
-                    Math.max(1, durationDays)
-            );
+            MarketEvent newEvent = createEventFromTemplate(template, durationDays);
             setActiveEvent(newEvent, marketManager);
             String msg = AmmoraLang.messageStr("event.started", newEvent.getTitle(), newEvent.getDescription());
             return msg.startsWith("message.ammora.") ? "§6[AMMORA] §eMARKET NEWS: §6«" + newEvent.getTitle() + "»! §f" + newEvent.getDescription() : msg;
         }
 
         return null;
+    }
+
+    /**
+     * Creates an active event instance from a template, randomizing the multiplier in a realistic range around the base value.
+     */
+    public MarketEvent createEventFromTemplate(MarketEvent template, int durationDays) {
+        double randomizedMultiplier = randomizeMultiplier(template.getPriceMultiplier(), this.random);
+        return new MarketEvent(
+                template.getId(),
+                template.getTitle(),
+                template.getTitleKey(),
+                template.getDescription(),
+                template.getDescriptionKey(),
+                template.getAffectedResourceId(),
+                randomizedMultiplier,
+                template.getWeight(),
+                Math.max(1, durationDays)
+        );
+    }
+
+    public static double randomizeMultiplier(double baseMultiplier, Random rng) {
+        if (Math.abs(baseMultiplier) < 0.001) return 0.0;
+        double sign = Math.signum(baseMultiplier);
+        double absBase = Math.abs(baseMultiplier);
+        // Vary between 80% and 125% of base value (e.g. +20% -> +16%..+25%, -20% -> -16%..-25%)
+        double factor = 0.80 + rng.nextDouble() * 0.45;
+        double randomized = sign * Math.round(absBase * factor * 100.0) / 100.0;
+        if (Math.abs(randomized) < 0.01) {
+            randomized = sign * 0.01;
+        }
+        return randomized;
     }
 
     public synchronized void setTemplatePool(List<MarketEvent> templates) {

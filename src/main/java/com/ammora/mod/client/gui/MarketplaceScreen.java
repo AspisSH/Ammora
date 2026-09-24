@@ -78,6 +78,7 @@ public class MarketplaceScreen extends Screen {
 
     // Courier Customization Modal state
     private boolean showCourierModal = false;
+    private int courierModalPage = 0;
 
     // JEI-style Item Picker Modal for RFQ
     private boolean showItemPickerModal = false;
@@ -116,6 +117,11 @@ public class MarketplaceScreen extends Screen {
     private String statusNotification = "";
     private boolean statusNotificationError = false;
     private long notificationExpireTime = 0L;
+
+    public static final int MAIN_WIDTH = 460;
+    public static final int MAIN_HEIGHT = 260;
+    public static final int COURIER_MODAL_WIDTH = 440;
+    public static final int COURIER_MODAL_HEIGHT = 248;
 
     private static final int COLOR_BG = 0xF5060A12;
     private static final int COLOR_PANEL = 0xEE090E18;
@@ -250,9 +256,14 @@ public class MarketplaceScreen extends Screen {
             return;
         }
 
+        if (editingMemberUuid != null) {
+            initEditMemberLimitWidgets();
+            return;
+        }
+
         dynamicCatalogButtons.clear();
 
-        int mw = 400, mh = 260;
+        int mw = MAIN_WIDTH, mh = MAIN_HEIGHT;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
@@ -287,8 +298,8 @@ public class MarketplaceScreen extends Screen {
             .build());
         }
 
-        // Navigation Tabs (2 rows of 4 tabs, spacious 93px width)
-        int tabW = 93;
+        // Navigation Tabs (2 rows of 4 tabs, spacious 108px width across 460px window)
+        int tabW = 108;
         int tabH = 16;
         int tabY1 = my + 24;
         int tabY2 = my + 42;
@@ -302,17 +313,17 @@ public class MarketplaceScreen extends Screen {
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 1 ? AmmoraLang.guiStr("market.tab_shops_active") : AmmoraLang.guiStr("market.tab_shops_inactive")),
                 b -> { activeTab = 1; shopsPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 105, tabY1, tabW, tabH).build());
+        ).bounds(mx + 120, tabY1, tabW, tabH).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 2 ? AmmoraLang.guiStr("market.tab_auctions_active") : AmmoraLang.guiStr("market.tab_auctions_inactive")),
                 b -> { activeTab = 2; auctionPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 202, tabY1, tabW, tabH).build());
+        ).bounds(mx + 232, tabY1, tabW, tabH).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 3 ? AmmoraLang.guiStr("market.tab_rfq_active") : AmmoraLang.guiStr("market.tab_rfq_inactive")),
                 b -> { activeTab = 3; reqPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 299, tabY1, tabW, tabH).build());
+        ).bounds(mx + 344, tabY1, tabW, tabH).build());
 
         // Row 2: Quests (4), Company (5), Buffer (6), History (7)
         this.addRenderableWidget(Button.builder(
@@ -323,7 +334,7 @@ public class MarketplaceScreen extends Screen {
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 5 ? AmmoraLang.guiStr("market.tab_company_active") : AmmoraLang.guiStr("market.tab_company_inactive")),
                 b -> { activeTab = 5; rebuildWidgets(); }
-        ).bounds(mx + 105, tabY2, tabW, tabH).build());
+        ).bounds(mx + 120, tabY2, tabW, tabH).build());
 
         int delCount = (data != null && data.deliveries() != null) ? data.deliveries().size() : 0;
         String bufferTabTitle;
@@ -335,12 +346,12 @@ public class MarketplaceScreen extends Screen {
         this.addRenderableWidget(Button.builder(
                 Component.literal(bufferTabTitle),
                 b -> { activeTab = 6; deliveryPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 202, tabY2, tabW, tabH).build());
+        ).bounds(mx + 232, tabY2, tabW, tabH).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(activeTab == 7 ? AmmoraLang.guiStr("market.tab_history_active") : AmmoraLang.guiStr("market.tab_history_inactive")),
                 b -> { activeTab = 7; txPage = 0; rebuildWidgets(); }
-        ).bounds(mx + 299, tabY2, tabW, tabH).build());
+        ).bounds(mx + 344, tabY2, tabW, tabH).build());
 
         if (activeTab == 0) {
             // TAB 0: Global Market Catalog
@@ -996,7 +1007,7 @@ public class MarketplaceScreen extends Screen {
 
         if (data == null || activeTab != 0) return;
 
-        int mw = 400, mh = 260;
+        int mw = MAIN_WIDTH, mh = MAIN_HEIGHT;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
@@ -1180,7 +1191,7 @@ public class MarketplaceScreen extends Screen {
             return;
         }
 
-        int mw = 400, mh = 260;
+        int mw = MAIN_WIDTH, mh = MAIN_HEIGHT;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
@@ -1229,13 +1240,22 @@ public class MarketplaceScreen extends Screen {
             if (System.currentTimeMillis() < notificationExpireTime && !statusNotification.isEmpty()) {
                 int notifW = this.font.width(statusNotification) + 20;
                 int nx = (this.width - notifW) / 2;
-                int ny = (this.height - 248) / 2 + 248 - 24;
+                int cmy = (this.height - COURIER_MODAL_HEIGHT) / 2;
+                int ny = Math.max(4, cmy - 24);
                 int boxBg = statusNotificationError ? 0xE6501010 : 0xE60E3A20;
                 int boxBorder = statusNotificationError ? COLOR_RED : COLOR_GREEN;
                 gg.fill(nx, ny, nx + notifW, ny + 18, boxBg);
                 drawOutlinedBox(gg, nx, ny, notifW, 18, boxBorder);
                 gg.drawCenteredString(this.font, statusNotification, nx + notifW / 2, ny + 5, 0xFFFFFFFF);
             }
+            return;
+        }
+
+        if (editingMemberUuid != null) {
+            // Full screen solid dark dim overlay to isolate modal
+            gg.fill(0, 0, this.width, this.height, 0xEE04070E);
+            renderEditMemberLimitModal(gg, mouseX, mouseY);
+            super.render(gg, mouseX, mouseY, partialTicks);
             return;
         }
 
@@ -1375,16 +1395,16 @@ public class MarketplaceScreen extends Screen {
                 }
 
                 // Item info without collision
-                gg.drawString(this.font, truncate("§f" + item.displayName(), 115), mx + 38, rowY + 5, 0xFFFFFFFF);
+                gg.drawString(this.font, truncate("§f" + item.displayName(), 145), mx + 38, rowY + 5, 0xFFFFFFFF);
                 String sub = "§8" + item.shopName() + " (§7" + item.ownerName() + "§8)";
-                gg.drawString(this.font, truncate(sub, 115), mx + 38, rowY + 17, 0xFFFFFFFF);
+                gg.drawString(this.font, truncate(sub, 145), mx + 38, rowY + 17, 0xFFFFFFFF);
 
                 // Price and delivery fee
                 String priceStr = "§e" + String.format("%.2f", item.priceCbx()) + " §8(+§c" + String.format("%.1f", item.deliveryFeeCbx()) + "§8) CBX";
-                gg.drawString(this.font, truncate(priceStr, 90), mx + 158, rowY + 5, 0xFFFFFFFF);
-                gg.drawString(this.font, AmmoraLang.guiStr("market.tooltip_in_stock", item.stockCount()), mx + 158, rowY + 17, 0xFFFFFFFF);
+                gg.drawString(this.font, truncate(priceStr, 110), mx + 188, rowY + 5, 0xFFFFFFFF);
+                gg.drawString(this.font, AmmoraLang.guiStr("market.tooltip_in_stock", item.stockCount()), mx + 188, rowY + 17, 0xFFFFFFFF);
 
-                if (mouseX >= mx + 10 && mouseX <= mx + 250 && mouseY >= rowY && mouseY <= rowY + 30) {
+                if (mouseX >= mx + 10 && mouseX <= mx + 300 && mouseY >= rowY && mouseY <= rowY + 30) {
                     hovered = item;
                 }
             } else {
@@ -1410,12 +1430,21 @@ public class MarketplaceScreen extends Screen {
                 gg.fill(mx + 10, rowY, mx + mw - 10, rowY + 30, COLOR_PANEL);
                 drawOutlinedBox(gg, mx + 10, rowY, mw - 20, 30, COLOR_BORDER_MUTED);
 
-                gg.drawString(this.font, truncate("§b🏪 " + shop.shopName(), 155), mx + 16, rowY + 5, 0xFFFFFFFF);
-                String coords = String.format("§7[%d, %d, %d] §8(%s)", shop.posX(), shop.posY(), shop.posZ(), shop.dimension());
-                gg.drawString(this.font, truncate(coords, 155), mx + 16, rowY + 17, 0xFFFFFFFF);
+                gg.drawString(this.font, truncate("§b🏪 " + shop.shopName(), 175), mx + 16, rowY + 5, 0xFFFFFFFF);
+                String dim = shop.dimension();
+                if (dim != null) {
+                    int colonIdx = dim.indexOf(':');
+                    if (colonIdx >= 0 && colonIdx < dim.length() - 1) {
+                        dim = dim.substring(colonIdx + 1);
+                    }
+                } else {
+                    dim = "overworld";
+                }
+                String coords = String.format("§7[%d, %d, %d] §8(%s)", shop.posX(), shop.posY(), shop.posZ(), dim);
+                gg.drawString(this.font, truncate(coords, 185), mx + 16, rowY + 17, 0xFFFFFFFF);
 
-                gg.drawString(this.font, truncate(AmmoraLang.guiStr("market.shop_owner_label", shop.ownerName()), 130), mx + 180, rowY + 5, 0xFFFFFFFF);
-                gg.drawString(this.font, AmmoraLang.guiStr("market.shop_stats", shop.activeSlotsCount(), shop.totalSales()), mx + 180, rowY + 17, 0xFFFFFFFF);
+                gg.drawString(this.font, truncate(AmmoraLang.guiStr("market.shop_owner_label", shop.ownerName()), 145), mx + 210, rowY + 5, 0xFFFFFFFF);
+                gg.drawString(this.font, AmmoraLang.guiStr("market.shop_stats", shop.activeSlotsCount(), shop.totalSales()), mx + 210, rowY + 17, 0xFFFFFFFF);
             } else {
                 gg.fill(mx + 10, rowY, mx + mw - 10, rowY + 30, 0x44080D16);
             }
@@ -2191,7 +2220,7 @@ public class MarketplaceScreen extends Screen {
 
         // Click on preview item slot in RFQ footer opens search modal
         if (activeTab == 3) {
-            int mw = 400, mh = 260;
+            int mw = MAIN_WIDTH, mh = MAIN_HEIGHT;
             int mx = (this.width - mw) / 2;
             int my = (this.height - mh) / 2;
             int footY = my + mh - 36;
@@ -2201,6 +2230,18 @@ public class MarketplaceScreen extends Screen {
                 rebuildWidgets();
                 return true;
             }
+        }
+
+        if (editingMemberUuid != null) {
+            int dw = 270, dh = 135;
+            int dx = (this.width - dw) / 2;
+            int dy = (this.height - dh) / 2;
+            if (mouseX < dx || mouseX > dx + dw || mouseY < dy || mouseY > dy + dh) {
+                editingMemberUuid = null;
+                rebuildWidgets();
+                return true;
+            }
+            return super.mouseClicked(mouseX, mouseY, button);
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
@@ -2276,10 +2317,19 @@ public class MarketplaceScreen extends Screen {
             return super.keyPressed(keyCode, scanCode, modifiers);
         }
 
-        if (keyCode == 256 && editingMemberUuid != null) {
-            editingMemberUuid = null;
-            rebuildWidgets();
-            return true;
+        if (editingMemberUuid != null) {
+            if (keyCode == 256) {
+                editingMemberUuid = null;
+                rebuildWidgets();
+                return true;
+            }
+            boolean textFocused = (editingMemberLimitInput != null && editingMemberLimitInput.isFocused());
+            if (!textFocused && this.minecraft != null && this.minecraft.options.keyInventory.matches(keyCode, scanCode)) {
+                editingMemberUuid = null;
+                rebuildWidgets();
+                return true;
+            }
+            return super.keyPressed(keyCode, scanCode, modifiers);
         }
 
         if (this.minecraft != null && this.minecraft.options.keyInventory.matches(keyCode, scanCode)) {
@@ -2360,19 +2410,21 @@ public class MarketplaceScreen extends Screen {
         }
 
         // Left Column: Team Roster
+        int leftX = mx + 10;
+        int leftW = 215;
         var members = comp.members();
         int totalMemPages = Math.max(1, (members.size() + 2) / 3);
         if (companyMemberPage > 0) {
             this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
                 companyMemberPage--;
                 rebuildWidgets();
-            }).bounds(mx + 130, my + 90, 18, 14).build());
+            }).bounds(leftX + leftW - 40, my + 90, 18, 14).build());
         }
         if (companyMemberPage < totalMemPages - 1) {
             this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
                 companyMemberPage++;
                 rebuildWidgets();
-            }).bounds(mx + 152, my + 90, 18, 14).build());
+            }).bounds(leftX + leftW - 20, my + 90, 18, 14).build());
         }
 
         // Member action buttons
@@ -2388,42 +2440,49 @@ public class MarketplaceScreen extends Screen {
                     String roleToggleIcon = isManager ? "§7👤" : "§b👔";
                     String roleToggleTip = isManager ? AmmoraLang.guiStr("company.demote_tooltip") : AmmoraLang.guiStr("company.promote_tooltip");
 
-                    if (editingMemberUuid == null) {
-                        this.addRenderableWidget(Button.builder(Component.literal("§e✎"), b -> {
-                            editingMemberUuid = m.playerUuid();
-                            editingMemberName = m.playerName();
-                            editingMemberSpent = m.spentTodayCbx();
-                            editingMemberCurrentLimit = m.dailyLimitCbx();
-                            rebuildWidgets();
-                        }).bounds(mx + 116, cardY + 7, 18, 18)
-                        .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.limit_tooltip"))))
-                        .build());
+                    int btnKickX = leftX + leftW - 22;
+                    int btnRoleX = btnKickX - 21;
+                    int btnEditX = btnRoleX - 21;
 
-                        this.addRenderableWidget(Button.builder(Component.literal(roleToggleIcon), b -> {
-                            String newRole = isManager ? "MEMBER" : "MANAGER";
-                            PacketDistributor.sendToServer(ServerboundCompanyActionPayload.setRole(m.playerUuid(), newRole));
-                        }).bounds(mx + 137, cardY + 7, 18, 18)
-                        .tooltip(Tooltip.create(Component.literal(roleToggleTip)))
-                        .build());
+                    this.addRenderableWidget(Button.builder(Component.literal("§e✎"), b -> {
+                        editingMemberUuid = m.playerUuid();
+                        editingMemberName = m.playerName();
+                        editingMemberSpent = m.spentTodayCbx();
+                        editingMemberCurrentLimit = m.dailyLimitCbx();
+                        rebuildWidgets();
+                    }).bounds(btnEditX, cardY + 7, 18, 18)
+                    .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.limit_tooltip"))))
+                    .build());
 
-                        this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
-                            PacketDistributor.sendToServer(ServerboundCompanyActionPayload.kick(m.playerUuid()));
-                        }).bounds(mx + 158, cardY + 7, 20, 18)
-                        .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.kick_tooltip"))))
-                        .build());
-                    }
+                    this.addRenderableWidget(Button.builder(Component.literal(roleToggleIcon), b -> {
+                        String newRole = isManager ? "MEMBER" : "MANAGER";
+                        PacketDistributor.sendToServer(ServerboundCompanyActionPayload.setRole(m.playerUuid(), newRole));
+                    }).bounds(btnRoleX, cardY + 7, 18, 18)
+                    .tooltip(Tooltip.create(Component.literal(roleToggleTip)))
+                    .build());
+
+                    this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
+                        PacketDistributor.sendToServer(ServerboundCompanyActionPayload.kick(m.playerUuid()));
+                    }).bounds(btnKickX, cardY + 7, 20, 18)
+                    .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.kick_tooltip"))))
+                    .build());
                 }
             }
         }
 
         // Bottom Left: Invite (Owner) or Leave (Member)
         if (comp.isOwner()) {
-            companyInviteInput = new EditBox(this.font, mx + 10, my + 230, 88, 16, Component.literal(AmmoraLang.guiStr("company.invite_hint")));
+            int invInputW = 95;
+            int invBtnW = 76;
+            int dissolveBtnW = 24;
+
+            companyInviteInput = new EditBox(this.font, leftX, my + 230, invInputW, 16, Component.literal(AmmoraLang.guiStr("company.invite_hint")));
             companyInviteInput.setMaxLength(16);
             companyInviteInput.setValue(lastCompanyInvite);
             companyInviteInput.setResponder(v -> lastCompanyInvite = v);
             this.addRenderableWidget(companyInviteInput);
 
+            int btnInvX = leftX + invInputW + 4;
             this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("company.btn_invite")), b -> {
                 String inv = companyInviteInput.getValue().trim();
                 if (!inv.isEmpty()) {
@@ -2431,74 +2490,36 @@ public class MarketplaceScreen extends Screen {
                     companyInviteInput.setValue("");
                     lastCompanyInvite = "";
                 }
-            }).bounds(mx + 102, my + 230, 44, 16).build());
+            }).bounds(btnInvX, my + 230, invBtnW, 16).build());
 
+            int btnDissolveX = btnInvX + invBtnW + 4;
             this.addRenderableWidget(Button.builder(Component.literal("§c⚠"), b -> {
                 PacketDistributor.sendToServer(ServerboundCompanyActionPayload.dissolve());
-            }).bounds(mx + 150, my + 230, 30, 16)
+            }).bounds(btnDissolveX, my + 230, dissolveBtnW, 16)
             .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("company.dissolve_tooltip"))))
             .build());
         } else {
             this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("company.btn_leave")), b -> {
                 PacketDistributor.sendToServer(ServerboundCompanyActionPayload.leave());
-            }).bounds(mx + 10, my + 230, 170, 16).build());
+            }).bounds(leftX, my + 230, leftW, 16).build());
         }
 
         // Right Column: Audit Ledger pagination
+        int rightX = leftX + leftW + 15;
+        int rightW = mw - 250;
         var ledger = comp.ledger();
         int totalLedgerPages = Math.max(1, (ledger.size() + 4) / 5);
         if (companyLedgerPage > 0) {
             this.addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
                 companyLedgerPage--;
                 rebuildWidgets();
-            }).bounds(mx + mw - 54, my + 90, 18, 14).build());
+            }).bounds(rightX + rightW - 40, my + 90, 18, 14).build());
         }
         if (companyLedgerPage < totalLedgerPages - 1) {
             this.addRenderableWidget(Button.builder(Component.literal("▶"), b -> {
                 companyLedgerPage++;
                 rebuildWidgets();
-            }).bounds(mx + mw - 32, my + 90, 18, 14).build());
-        }
-
-        if (editingMemberUuid != null) {
-            int dw = 250, dh = 125;
-            int dx = mx + (mw - dw) / 2;
-            int dy = my + (mh - dh) / 2;
-
-            editingMemberLimitInput = new EditBox(this.font, dx + 16, dy + 58, 68, 16, Component.literal("Limit"));
-            editingMemberLimitInput.setMaxLength(10);
-            editingMemberLimitInput.setValue(String.format(Locale.US, "%.0f", editingMemberCurrentLimit));
-            this.addRenderableWidget(editingMemberLimitInput);
-
-            // Preset buttons
-            this.addRenderableWidget(Button.builder(Component.literal("0"), b -> editingMemberLimitInput.setValue("0"))
-                    .bounds(dx + 88, dy + 58, 28, 16).build());
-            this.addRenderableWidget(Button.builder(Component.literal("100"), b -> editingMemberLimitInput.setValue("100"))
-                    .bounds(dx + 119, dy + 58, 36, 16).build());
-            this.addRenderableWidget(Button.builder(Component.literal("500"), b -> editingMemberLimitInput.setValue("500"))
-                    .bounds(dx + 158, dy + 58, 36, 16).build());
-            this.addRenderableWidget(Button.builder(Component.literal("1k"), b -> editingMemberLimitInput.setValue("1000"))
-                    .bounds(dx + 197, dy + 58, 36, 16).build());
-
-            // Save and Cancel buttons
-            this.addRenderableWidget(Button.builder(Component.literal("§a✔ " + AmmoraLang.guiStr("company.btn_save_limit")), b -> {
-                try {
-                    double val = Math.max(0.0, Double.parseDouble(editingMemberLimitInput.getValue().trim().replace(',', '.')));
-                    PacketDistributor.sendToServer(ServerboundCompanyActionPayload.setLimit(editingMemberUuid, val));
-                } catch (NumberFormatException ignored) {}
-                editingMemberUuid = null;
-                rebuildWidgets();
-            }).bounds(dx + 16, dy + 90, 104, 18).build());
-
-            this.addRenderableWidget(Button.builder(Component.literal("§c✖ " + AmmoraLang.guiStr("company.btn_cancel_limit")), b -> {
-                editingMemberUuid = null;
-                rebuildWidgets();
-            }).bounds(dx + 129, dy + 90, 104, 18).build());
-
-            this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
-                editingMemberUuid = null;
-                rebuildWidgets();
-            }).bounds(dx + dw - 20, dy + 4, 16, 14).build());
+            }).bounds(rightX + rightW - 18, my + 90, 18, 14).build());
         }
     }
 
@@ -2534,7 +2555,7 @@ public class MarketplaceScreen extends Screen {
 
         // Left: Team Roster
         int leftX = mx + 10;
-        int leftW = 175;
+        int leftW = 215;
         gg.drawString(this.font, "§b👥 " + AmmoraLang.guiStr("company.members_title", comp.members().size()), leftX + 2, my + 92, 0xFFFFFFFF);
 
         var members = comp.members();
@@ -2548,7 +2569,7 @@ public class MarketplaceScreen extends Screen {
                 drawOutlinedBox(gg, leftX, cardY, leftW, 32, COLOR_BORDER_MUTED);
 
                 String memRole = "OWNER".equalsIgnoreCase(m.role()) ? "§6👑" : ("MANAGER".equalsIgnoreCase(m.role()) ? "§b👔" : "§7👤");
-                gg.drawString(this.font, memRole + " §f" + truncate(m.playerName(), 70), leftX + 4, cardY + 5, 0xFFFFFFFF);
+                gg.drawString(this.font, memRole + " §f" + truncate(m.playerName(), 95), leftX + 4, cardY + 5, 0xFFFFFFFF);
 
                 String limStr = "OWNER".equalsIgnoreCase(m.role()) ? "§8" + AmmoraLang.guiStr("company.limit_unlimited")
                         : String.format(Locale.US, "§7%.0f/%.0f", m.spentTodayCbx(), m.dailyLimitCbx());
@@ -2559,8 +2580,8 @@ public class MarketplaceScreen extends Screen {
         }
 
         // Right: Financial Audit Ledger
-        int rightX = mx + 195;
-        int rightW = mw - 205;
+        int rightX = leftX + leftW + 15;
+        int rightW = mw - 250;
         gg.drawString(this.font, "§b📜 " + AmmoraLang.guiStr("company.ledger_title"), rightX + 2, my + 92, 0xFFFFFFFF);
 
         var ledger = comp.ledger();
@@ -2610,29 +2631,78 @@ public class MarketplaceScreen extends Screen {
             tip.add(Component.literal("§8" + new Date(hoveredEntry.timestamp())));
             gg.renderComponentTooltip(this.font, tip, mouseX, mouseY);
         }
+    }
 
-        if (editingMemberUuid != null) {
-            gg.fill(0, 0, this.width, this.height, 0xCC060910);
-            int dw = 250, dh = 125;
-            int dx = mx + (mw - dw) / 2;
-            int dy = my + (mh - dh) / 2;
+    private void initEditMemberLimitWidgets() {
+        int dw = 270, dh = 135;
+        int dx = (this.width - dw) / 2;
+        int dy = (this.height - dh) / 2;
 
-            gg.fill(dx, dy, dx + dw, dy + dh, COLOR_PANEL);
-            drawOutlinedBox(gg, dx, dy, dw, dh, COLOR_BORDER_CYAN);
+        editingMemberLimitInput = new EditBox(this.font, dx + 16, dy + 62, 70, 18, Component.literal("Limit"));
+        editingMemberLimitInput.setMaxLength(10);
+        editingMemberLimitInput.setValue(String.format(Locale.US, "%.0f", editingMemberCurrentLimit));
+        this.addRenderableWidget(editingMemberLimitInput);
+        this.setInitialFocus(editingMemberLimitInput);
 
-            gg.fill(dx, dy, dx + dw, dy + 22, COLOR_PANEL_HEADER);
-            drawOutlinedBox(gg, dx, dy, dw, 22, COLOR_BORDER_MUTED);
+        // Preset buttons: [0], [100], [500], [1k]
+        this.addRenderableWidget(Button.builder(Component.literal("0"), b -> editingMemberLimitInput.setValue("0"))
+                .bounds(dx + 92, dy + 62, 30, 18).build());
+        this.addRenderableWidget(Button.builder(Component.literal("100"), b -> editingMemberLimitInput.setValue("100"))
+                .bounds(dx + 126, dy + 62, 40, 18).build());
+        this.addRenderableWidget(Button.builder(Component.literal("500"), b -> editingMemberLimitInput.setValue("500"))
+                .bounds(dx + 170, dy + 62, 40, 18).build());
+        this.addRenderableWidget(Button.builder(Component.literal("1k"), b -> editingMemberLimitInput.setValue("1000"))
+                .bounds(dx + 214, dy + 62, 40, 18).build());
 
-            gg.drawString(this.font, "§6🏢 " + AmmoraLang.guiStr("company.limit_modal_title"), dx + 10, dy + 7, 0xFFFFFFFF);
-            gg.drawString(this.font, "§7" + AmmoraLang.guiStr("company.limit_modal_target") + ": §f" + truncate(editingMemberName, 120), dx + 16, dy + 28, 0xFFFFFFFF);
-            gg.drawString(this.font, "§8" + AmmoraLang.guiStr("company.limit_modal_spent") + ": §e" + String.format(Locale.US, "%.1f CBX", editingMemberSpent), dx + 16, dy + 42, 0xFFFFFFFF);
-        }
+        // Save and Cancel buttons
+        this.addRenderableWidget(Button.builder(Component.literal("§a✔ " + AmmoraLang.guiStr("company.btn_save_limit")), b -> {
+            try {
+                double val = Math.max(0.0, Double.parseDouble(editingMemberLimitInput.getValue().trim().replace(',', '.')));
+                PacketDistributor.sendToServer(ServerboundCompanyActionPayload.setLimit(editingMemberUuid, val));
+            } catch (NumberFormatException ignored) {}
+            editingMemberUuid = null;
+            rebuildWidgets();
+        }).bounds(dx + 16, dy + 98, 114, 20).build());
+
+        this.addRenderableWidget(Button.builder(Component.literal("§c✖ " + AmmoraLang.guiStr("company.btn_cancel_limit")), b -> {
+            editingMemberUuid = null;
+            rebuildWidgets();
+        }).bounds(dx + 140, dy + 98, 114, 20).build());
+
+        // Close [✕] button at top right
+        this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
+            editingMemberUuid = null;
+            rebuildWidgets();
+        }).bounds(dx + dw - 20, dy + 4, 16, 14).build());
+    }
+
+    private void renderEditMemberLimitModal(GuiGraphics gg, int mouseX, int mouseY) {
+        int dw = 270, dh = 135;
+        int dx = (this.width - dw) / 2;
+        int dy = (this.height - dh) / 2;
+
+        // Solid opaque panel
+        gg.fill(dx, dy, dx + dw, dy + dh, 0xFF080D18);
+        drawOutlinedBox(gg, dx, dy, dw, dh, COLOR_BORDER_CYAN);
+        drawOutlinedBox(gg, dx + 1, dy + 1, dw - 2, dh - 2, 0xFF142032);
+
+        // Header
+        gg.fill(dx + 2, dy + 2, dx + dw - 2, dy + 22, 0xFF0E1626);
+        gg.hLine(dx + 2, dx + dw - 2, dy + 22, 0xFF1C2C44);
+
+        gg.drawString(this.font, "§6🏢 " + AmmoraLang.guiStr("company.limit_modal_title"), dx + 10, dy + 7, 0xFFFFFFFF);
+        gg.drawString(this.font, "§7" + AmmoraLang.guiStr("company.limit_modal_target") + ": §f" + truncate(editingMemberName, 130), dx + 16, dy + 28, 0xFFFFFFFF);
+        gg.drawString(this.font, "§8" + AmmoraLang.guiStr("company.limit_modal_spent") + ": §e" + String.format(Locale.US, "%.1f CBX", editingMemberSpent), dx + 16, dy + 44, 0xFFFFFFFF);
     }
 
     private void initCourierModalWidgets() {
-        int cmw = 380, cmh = 248;
+        int cmw = COURIER_MODAL_WIDTH, cmh = COURIER_MODAL_HEIGHT;
         int cmx = (this.width - cmw) / 2;
         int cmy = (this.height - cmh) / 2;
+
+        CourierType[] types = CourierType.values();
+        int totalPages = Math.max(1, (types.length + 3) / 4);
+        courierModalPage = Math.max(0, Math.min(courierModalPage, totalPages - 1));
 
         // Close button
         this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
@@ -2640,13 +2710,37 @@ public class MarketplaceScreen extends Screen {
             rebuildWidgets();
         }).bounds(cmx + cmw - 22, cmy + 4, 18, 16).build());
 
-        CourierType[] types = CourierType.values();
-        for (int i = 0; i < types.length; i++) {
+        // Pagination buttons
+        if (totalPages > 1) {
+            Button prevBtn = Button.builder(Component.literal("§f◀"), b -> {
+                if (courierModalPage > 0) {
+                    courierModalPage--;
+                    rebuildWidgets();
+                }
+            }).bounds(cmx + cmw - 92, cmy + 4, 18, 16).build();
+            prevBtn.active = (courierModalPage > 0);
+            this.addRenderableWidget(prevBtn);
+
+            Button nextBtn = Button.builder(Component.literal("§f▶"), b -> {
+                if (courierModalPage < totalPages - 1) {
+                    courierModalPage++;
+                    rebuildWidgets();
+                }
+            }).bounds(cmx + cmw - 44, cmy + 4, 18, 16).build();
+            nextBtn.active = (courierModalPage < totalPages - 1);
+            this.addRenderableWidget(nextBtn);
+        }
+
+        int start = courierModalPage * 4;
+        int end = Math.min(start + 4, types.length);
+
+        for (int i = start; i < end; i++) {
             CourierType type = types[i];
-            int cardY = cmy + 40 + i * 50;
+            int slotIndex = i - start;
+            int cardY = cmy + 40 + slotIndex * 50;
             int cardX = cmx + 8;
             int cardW = cmw - 16;
-            int btnW = 96;
+            int btnW = 90;
             int btnH = 20;
             int btnX = cardX + cardW - btnW - 6;
             int btnY = cardY + 13;
@@ -2654,6 +2748,9 @@ public class MarketplaceScreen extends Screen {
             boolean isActive = data != null && type.getId().equalsIgnoreCase(data.activeCourier());
             boolean isUnlocked = (type == CourierType.BEE) ||
                     (data != null && data.unlockedCouriers() != null && data.unlockedCouriers().contains(type.getId()));
+
+            MarketplaceDataPayload.CourierProgressItem prog = data != null ? data.getCourierProgress(type.getId()) : null;
+            boolean isClaimable = prog != null && prog.isClaimable();
 
             if (isActive) {
                 Button btn = Button.builder(Component.literal("§a✔ " + AmmoraLang.guiStr("courier.active")), b -> {})
@@ -2665,19 +2762,25 @@ public class MarketplaceScreen extends Screen {
                 this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("courier.select")), b -> {
                     PacketDistributor.sendToServer(ServerboundCourierSkinPayload.select(type.getId()));
                 }).bounds(btnX, btnY, btnW, btnH).build());
-            } else {
-                int price = (int) type.getPriceCbx();
-                this.addRenderableWidget(Button.builder(Component.literal("§6" + AmmoraLang.guiStr("courier.unlock", price)), b -> {
+            } else if (isClaimable) {
+                this.addRenderableWidget(Button.builder(Component.literal("§a★ " + AmmoraLang.guiStr("courier.claim_btn")), b -> {
                     PacketDistributor.sendToServer(ServerboundCourierSkinPayload.buy(type.getId()));
                 }).bounds(btnX, btnY, btnW, btnH)
-                .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("courier.buy_tooltip", price))))
+                .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("courier.claim_tooltip"))))
+                .build());
+            } else {
+                int price = (int) type.getPriceCbx();
+                this.addRenderableWidget(Button.builder(Component.literal("§6" + AmmoraLang.guiStr("courier.buyout_btn", price)), b -> {
+                    PacketDistributor.sendToServer(ServerboundCourierSkinPayload.buy(type.getId()));
+                }).bounds(btnX, btnY, btnW, btnH)
+                .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("courier.buyout_tooltip", price))))
                 .build());
             }
         }
     }
 
     private void renderCourierModal(GuiGraphics gg, int mouseX, int mouseY) {
-        int cmw = 380, cmh = 248;
+        int cmw = COURIER_MODAL_WIDTH, cmh = COURIER_MODAL_HEIGHT;
         int cmx = (this.width - cmw) / 2;
         int cmy = (this.height - cmh) / 2;
 
@@ -2691,20 +2794,35 @@ public class MarketplaceScreen extends Screen {
         gg.drawString(this.font, "§7" + AmmoraLang.guiStr("courier.service_subtitle"), cmx + 10, cmy + 28, COLOR_TEXT_MUTED);
 
         CourierType[] types = CourierType.values();
-        for (int i = 0; i < types.length; i++) {
+        int totalPages = Math.max(1, (types.length + 3) / 4);
+
+        if (totalPages > 1) {
+            String pageIndicator = (courierModalPage + 1) + " / " + totalPages;
+            int pw = this.font.width(pageIndicator);
+            gg.drawString(this.font, pageIndicator, cmx + cmw - 59 - (pw / 2), cmy + 8, 0xFFFFFFFF);
+        }
+
+        int start = courierModalPage * 4;
+        int end = Math.min(start + 4, types.length);
+
+        for (int i = start; i < end; i++) {
             CourierType type = types[i];
-            int cardY = cmy + 40 + i * 50;
+            int slotIndex = i - start;
+            int cardY = cmy + 40 + slotIndex * 50;
             int cardX = cmx + 8;
             int cardW = cmw - 16;
-            int btnW = 96;
+            int btnW = 90;
             int btnX = cardX + cardW - btnW - 6;
 
             boolean isActive = data != null && type.getId().equalsIgnoreCase(data.activeCourier());
             boolean isUnlocked = (type == CourierType.BEE) ||
                     (data != null && data.unlockedCouriers() != null && data.unlockedCouriers().contains(type.getId()));
 
-            int cardBg = isActive ? 0xF00A1A14 : COLOR_PANEL;
-            int cardBorder = isActive ? COLOR_GREEN : COLOR_BORDER_MUTED;
+            MarketplaceDataPayload.CourierProgressItem prog = data != null ? data.getCourierProgress(type.getId()) : null;
+            boolean isClaimable = prog != null && prog.isClaimable();
+
+            int cardBg = isActive ? 0xF00A1A14 : (isClaimable ? 0xF0122416 : COLOR_PANEL);
+            int cardBorder = isActive ? COLOR_GREEN : (isClaimable ? COLOR_AMBER : COLOR_BORDER_MUTED);
 
             gg.fill(cardX, cardY, cardX + cardW, cardY + 46, cardBg);
             drawOutlinedBox(gg, cardX, cardY, cardW, 46, cardBorder);
@@ -2730,8 +2848,19 @@ public class MarketplaceScreen extends Screen {
                 badge = "§b✦ " + AmmoraLang.guiStr("courier.free");
             } else if (isUnlocked) {
                 badge = "§b✦ " + AmmoraLang.guiStr("courier.unlocked_status");
+            } else if (isClaimable) {
+                badge = "§a★ " + AmmoraLang.guiStr("courier.achievement_ready");
             } else {
-                badge = "§6● " + AmmoraLang.guiStr("courier.price_label", String.format(Locale.US, "%.0f", type.getPriceCbx()));
+                String goalStr;
+                if (type == CourierType.HEAVY_BEE) {
+                    goalStr = String.format(Locale.US, "%.0f/%.0f CBX", prog != null ? prog.currentProgress() : 0.0, type.getTargetGoal());
+                } else {
+                    goalStr = String.format(Locale.US, "%.0f/%.0f", prog != null ? prog.currentProgress() : 0.0, type.getTargetGoal());
+                }
+                badge = "§e🎯 " + AmmoraLang.guiStr(type.getAchievementDescKey()) + " §8[§b" + goalStr + "§8]";
+            }
+            if (this.font.width(badge) > maxTextW) {
+                badge = this.font.plainSubstrByWidth(badge, maxTextW - 6) + "..";
             }
             gg.drawString(this.font, badge, textX, cardY + 30, 0xFFFFFFFF);
         }

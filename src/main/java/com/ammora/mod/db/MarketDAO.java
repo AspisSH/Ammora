@@ -2235,5 +2235,91 @@ public class MarketDAO {
             ps.executeUpdate();
         }
     }
+
+    public record CourierProgressStats(
+            int exchangeTrades,
+            int companyOrQuests,
+            int remoteOrders,
+            int shopSales,
+            double currentBalance
+    ) {}
+
+    public CourierProgressStats getCourierProgressStats(UUID playerUuid) {
+        if (playerUuid == null) return new CourierProgressStats(0, 0, 0, 0, 0.0);
+
+        int exchangeTrades = 0;
+        int companyOrQuests = 0;
+        int remoteOrders = 0;
+        int shopSales = 0;
+        double currentBalance = 0.0;
+
+        try (Connection conn = dbManager.getConnection()) {
+            // 1. Exchange / Auction / RFQ trades
+            String sqlTrades = """
+                SELECT COUNT(*) FROM market_transactions 
+                WHERE (buyer_uuid = ? OR seller_uuid = ?) 
+                  AND tx_type IN ('SPOT_BUY', 'SPOT_SELL', 'RFQ_FULFILL', 'AUCTION_BUYOUT', 'AUCTION_WIN');
+            """;
+            try (PreparedStatement ps = conn.prepareStatement(sqlTrades)) {
+                ps.setString(1, playerUuid.toString());
+                ps.setString(2, playerUuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) exchangeTrades = rs.getInt(1);
+                }
+            }
+
+            // 2. Company membership or completed community quests
+            String sqlSocial = """
+                SELECT (
+                    (SELECT COUNT(*) FROM company_members WHERE player_uuid = ?) +
+                    (SELECT COUNT(*) FROM community_quests WHERE worker_uuid = ? AND status = 'COMPLETED')
+                );
+            """;
+            try (PreparedStatement ps = conn.prepareStatement(sqlSocial)) {
+                ps.setString(1, playerUuid.toString());
+                ps.setString(2, playerUuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) companyOrQuests = rs.getInt(1);
+                }
+            }
+
+            // 3. Remote network purchases
+            String sqlRemote = """
+                SELECT COUNT(*) FROM market_transactions 
+                WHERE buyer_uuid = ? AND tx_type = 'REMOTE_BUY';
+            """;
+            try (PreparedStatement ps = conn.prepareStatement(sqlRemote)) {
+                ps.setString(1, playerUuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) remoteOrders = rs.getInt(1);
+                }
+            }
+
+            // 4. Shop sales in owned player shops
+            String sqlShops = """
+                SELECT COALESCE(SUM(total_sales), 0) FROM player_shops 
+                WHERE owner_uuid = ?;
+            """;
+            try (PreparedStatement ps = conn.prepareStatement(sqlShops)) {
+                ps.setString(1, playerUuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) shopSales = rs.getInt(1);
+                }
+            }
+
+            // 5. Account balance
+            String sqlAcc = "SELECT balance_cbx FROM accounts WHERE player_uuid = ? LIMIT 1;";
+            try (PreparedStatement ps = conn.prepareStatement(sqlAcc)) {
+                ps.setString(1, playerUuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) currentBalance = rs.getDouble(1);
+                }
+            }
+        } catch (SQLException e) {
+            AmmoraMod.LOGGER.error("Failed to fetch courier progress stats for " + playerUuid, e);
+        }
+
+        return new CourierProgressStats(exchangeTrades, companyOrQuests, remoteOrders, shopSales, currentBalance);
+    }
 }
 

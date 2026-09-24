@@ -1,10 +1,10 @@
 {
   "parent": "minecraft:block/orientable_with_bottom",
   "textures": {
-    "top": "minecraft:block/chiseled_copper",
-    "bottom": "minecraft:block/gold_block",
-    "front": "minecraft:block/dispenser_front",
-    "side": "minecraft:block/copper_block",
-    "particle": "minecraft:block/copper_block"
+    "top": "ammora:block/purchase_dock_top",
+    "bottom": "ammora:block/purchase_dock_bottom",
+    "front": "ammora:block/purchase_dock_front",
+    "side": "ammora:block/purchase_dock_side",
+    "particle": "ammora:block/purchase_dock_side"
   }
 }

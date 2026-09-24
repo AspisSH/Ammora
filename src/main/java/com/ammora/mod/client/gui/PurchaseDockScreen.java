@@ -90,22 +90,28 @@ public class PurchaseDockScreen extends Screen {
         super.init();
         if (data == null) return;
 
-        int mw = 384, mh = 230;
+        int mw = 440, mh = 236;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
         int leftX = mx + 8;
-        int leftW = 126;
-        int rightX = mx + 140;
-        int rightW = mw - 148;
+        int leftW = 142;
+        int rightX = mx + 158;
+        int rightW = mw - 166;
 
-        // Corporate Billing toggle in header
+        // Player Rank badge on right
+        String rankTitle = getRankTitle(data.repLevel());
+        String rankBadge = AmmoraLang.guiStr("dock.rank_badge", rankTitle, data.repLevel());
+        int rankW = this.font.width(rankBadge);
+        int rankX = mx + mw - 8 - rankW;
+
+        // Corporate Billing toggle in header (placed strictly to the left of rank badge with zero overlap)
         int compBtnW = 100;
-        int compBtnX = mx + mw - compBtnW - 80;
+        int compBtnX = rankX - compBtnW - 8;
         boolean linked = data.isCompanyLinked();
         String compName = (data.companyName() != null && !data.companyName().isEmpty()) ? data.companyName() : AmmoraLang.guiStr("account.company");
-        if (this.font.width(compName) > 60) {
-            compName = this.font.plainSubstrByWidth(compName, 52) + "..";
+        if (this.font.width(compName) > 68) {
+            compName = this.font.plainSubstrByWidth(compName, 60) + "..";
         }
         String compBtnText = (linked ? "§6🏢 " : "§7👤 ") + compName;
         this.addRenderableWidget(Button.builder(Component.literal(compBtnText), b -> {
@@ -129,7 +135,12 @@ public class PurchaseDockScreen extends Screen {
                 var res = data.availableResources().get(i);
                 int btnY = resY + (i * 20);
                 boolean isSelected = res.resourceId().equals(selectedResourceId);
-                String label = (isSelected ? "§b▶ " : "") + getShortName(res.resourceId(), res.displayName());
+                String rawName = getShortName(res.resourceId(), res.displayName());
+                int maxTextW = leftW - 24;
+                if (this.font.width(rawName) > maxTextW) {
+                    rawName = this.font.plainSubstrByWidth(rawName, maxTextW - 6) + "..";
+                }
+                String label = (isSelected ? "§b▶ " : "") + rawName;
 
                 this.addRenderableWidget(Button.builder(Component.literal(label), b -> {
                     this.selectedResourceId = res.resourceId();
@@ -167,17 +178,17 @@ public class PurchaseDockScreen extends Screen {
         int guardBoxY = my + 95;
         int priceBtnY = guardBoxY + 27;
         if (repLevel >= 3) {
-            int pW = 32;
+            int pW = 34;
             this.addRenderableWidget(Button.builder(Component.literal("-10"), b -> adjustMaxPrice(-10.0)).bounds(rightX + 4, priceBtnY, pW, 15).build());
-            this.addRenderableWidget(Button.builder(Component.literal("-1"), b -> adjustMaxPrice(-1.0)).bounds(rightX + 38, priceBtnY, 26, 15).build());
-            this.addRenderableWidget(Button.builder(Component.literal("+1"), b -> adjustMaxPrice(1.0)).bounds(rightX + 66, priceBtnY, 26, 15).build());
-            this.addRenderableWidget(Button.builder(Component.literal("+10"), b -> adjustMaxPrice(10.0)).bounds(rightX + 94, priceBtnY, pW, 15).build());
+            this.addRenderableWidget(Button.builder(Component.literal("-1"), b -> adjustMaxPrice(-1.0)).bounds(rightX + 42, priceBtnY, 28, 15).build());
+            this.addRenderableWidget(Button.builder(Component.literal("+1"), b -> adjustMaxPrice(1.0)).bounds(rightX + 74, priceBtnY, 28, 15).build());
+            this.addRenderableWidget(Button.builder(Component.literal("+10"), b -> adjustMaxPrice(10.0)).bounds(rightX + 106, priceBtnY, pW, 15).build());
 
             // Market +10% quick align button
             this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("dock.btn_market_plus10")), b -> {
                 double spot = getCurrentSelectedSpot();
                 this.selectedMaxBuyPrice = MarketEngine.round2(spot * 1.10);
-            }).bounds(rightX + 128, priceBtnY, rightW - 132, 15).build());
+            }).bounds(rightX + 144, priceBtnY, rightW - 148, 15).build());
         }
 
         // Save & Apply Button
@@ -231,7 +242,7 @@ public class PurchaseDockScreen extends Screen {
         }
 
 
-        int mw = 384, mh = 230;
+        int mw = 440, mh = 236;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
@@ -253,9 +264,9 @@ public class PurchaseDockScreen extends Screen {
         g.drawString(this.font, rankBadge, mx + mw - 8 - this.font.width(rankBadge), my + 5, 0xFFFFFFFF);
 
         int leftX = mx + 8;
-        int leftW = 126;
-        int rightX = mx + 140;
-        int rightW = mw - 148;
+        int leftW = 142;
+        int rightX = mx + 158;
+        int rightW = mw - 166;
 
         // Left section: Resource list title
         g.drawString(this.font, AmmoraLang.guiStr("dock.res_list"), leftX, my + 28, 0xFFFFFFFF);
@@ -369,7 +380,7 @@ public class PurchaseDockScreen extends Screen {
         if (!key.equals(localized)) {
             return localized;
         }
-        return (defaultName.length() > 10 ? defaultName.substring(0, 9) + ".." : defaultName);
+        return defaultName;
     }
 
     private String getRankTitle(int level) {

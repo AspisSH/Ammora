@@ -27,9 +27,36 @@ public record MarketplaceDataPayload(
         CompanyData company,
         String activeCourier,
         List<String> unlockedCouriers,
+        List<CourierProgressItem> courierProgress,
         String statusMessage,
         boolean isError
 ) implements CustomPacketPayload {
+
+    public record CourierProgressItem(
+            String courierId,
+            double currentProgress,
+            double targetGoal,
+            boolean isClaimable
+    ) {}
+
+    public MarketplaceDataPayload(
+            double balanceCbx,
+            int repLevel,
+            List<MarketplaceSlotItem> catalogSlots,
+            List<MarketplaceShopItem> shops,
+            List<BuyRequestItem> buyRequests,
+            List<CommunityQuestItem> quests,
+            List<MarketTxItem> transactions,
+            List<DeliveryBufferItem> deliveries,
+            List<LiveAuctionItem> auctions,
+            CompanyData company,
+            String activeCourier,
+            List<String> unlockedCouriers,
+            String statusMessage,
+            boolean isError
+    ) {
+        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, auctions, company, activeCourier, unlockedCouriers, List.of(), statusMessage, isError);
+    }
 
     public MarketplaceDataPayload(
             double balanceCbx,
@@ -45,7 +72,7 @@ public record MarketplaceDataPayload(
             String statusMessage,
             boolean isError
     ) {
-        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, auctions, company, "BEE", List.of("BEE"), statusMessage, isError);
+        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, auctions, company, "BEE", List.of("BEE"), List.of(), statusMessage, isError);
     }
 
     public MarketplaceDataPayload(
@@ -61,7 +88,7 @@ public record MarketplaceDataPayload(
             String statusMessage,
             boolean isError
     ) {
-        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, auctions, CompanyData.none(), "BEE", List.of("BEE"), statusMessage, isError);
+        this(balanceCbx, repLevel, catalogSlots, shops, buyRequests, quests, transactions, deliveries, auctions, CompanyData.none(), "BEE", List.of("BEE"), List.of(), statusMessage, isError);
     }
 
     public MarketplaceDataPayload(
@@ -295,6 +322,7 @@ public record MarketplaceDataPayload(
                 readCompanyData(buf),
                 buf.readUtf(),
                 readUnlockedCouriers(buf),
+                readCourierProgress(buf),
                 buf.readUtf(),
                 buf.readBoolean()
         );
@@ -560,6 +588,7 @@ public record MarketplaceDataPayload(
 
         buf.writeUtf(activeCourier != null ? activeCourier : "BEE");
         writeUnlockedCouriers(buf, unlockedCouriers);
+        writeCourierProgress(buf, courierProgress);
         buf.writeUtf(statusMessage != null ? statusMessage : "");
         buf.writeBoolean(isError);
     }
@@ -582,6 +611,43 @@ public record MarketplaceDataPayload(
         for (String s : list) {
             buf.writeUtf(s != null ? s : "");
         }
+    }
+
+    private static List<CourierProgressItem> readCourierProgress(FriendlyByteBuf buf) {
+        int count = buf.readVarInt();
+        List<CourierProgressItem> list = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            list.add(new CourierProgressItem(
+                    buf.readUtf(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readBoolean()
+            ));
+        }
+        return list;
+    }
+
+    private static void writeCourierProgress(FriendlyByteBuf buf, List<CourierProgressItem> list) {
+        if (list == null) {
+            buf.writeVarInt(0);
+            return;
+        }
+        buf.writeVarInt(list.size());
+        for (CourierProgressItem cp : list) {
+            buf.writeUtf(cp.courierId() != null ? cp.courierId() : "");
+            buf.writeDouble(cp.currentProgress());
+            buf.writeDouble(cp.targetGoal());
+            buf.writeBoolean(cp.isClaimable());
+        }
+    }
+
+    public CourierProgressItem getCourierProgress(String courierId) {
+        if (courierProgress != null && courierId != null) {
+            for (CourierProgressItem p : courierProgress) {
+                if (courierId.equalsIgnoreCase(p.courierId())) return p;
+            }
+        }
+        return new CourierProgressItem(courierId != null ? courierId : "BEE", 0.0, 1.0, false);
     }
 
     private static List<DeliveryBufferItem> readDeliveries(FriendlyByteBuf buf) {

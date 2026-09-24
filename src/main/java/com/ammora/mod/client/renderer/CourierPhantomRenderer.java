@@ -17,7 +17,6 @@ public class CourierPhantomRenderer extends MobRenderer<CourierPhantomEntity, Ph
 
     public CourierPhantomRenderer(EntityRendererProvider.Context context) {
         super(context, new PhantomModel<>(context.bakeLayer(ModelLayers.PHANTOM)), 0.6F);
-        this.addLayer(new CourierPhantomHeldItemLayer(this, context.getItemRenderer()));
         this.addLayer(new CourierPhantomAccessoryLayer(this, context.getModelSet()));
     }
 

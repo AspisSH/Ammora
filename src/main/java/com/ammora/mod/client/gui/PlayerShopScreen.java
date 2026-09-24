@@ -84,7 +84,7 @@ public class PlayerShopScreen extends Screen {
             selectedSlot = 0;
         }
 
-        int mw = 384, mh = 248;
+        int mw = 440, mh = 254;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
@@ -174,7 +174,7 @@ public class PlayerShopScreen extends Screen {
 
         if (data.isOwner()) {
             // Header buttons for owner on the right side
-            int upgradesW = 78;
+            int upgradesW = 84;
             int upgradesX = mx + mw - 8 - upgradesW;
             this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("shop.btn_upgrades_tab")), b -> {
                 this.showUpgradesModal = true;
@@ -184,12 +184,12 @@ public class PlayerShopScreen extends Screen {
             // Company revenue routing button
             boolean hasLinkedComp = data.linkedCompanyName() != null && !data.linkedCompanyName().isEmpty();
             String compShort = hasLinkedComp ? data.linkedCompanyName() : AmmoraLang.guiStr("shop.link_company");
-            if (this.font.width(compShort) > 46) {
-                compShort = this.font.plainSubstrByWidth(compShort, 40) + "..";
+            if (this.font.width(compShort) > 74) {
+                compShort = this.font.plainSubstrByWidth(compShort, 66) + "..";
             }
             String compBtnText = (hasLinkedComp ? "§6🏢 " : "§7🏢 ") + compShort;
-            int compW = 88;
-            int compX = upgradesX - 4 - compW;
+            int compW = 100;
+            int compX = upgradesX - 6 - compW;
             this.addRenderableWidget(Button.builder(Component.literal(compBtnText), b -> {
                 PacketDistributor.sendToServer(new ServerboundConfigureShopPayload(
                         data.shopId(), "TOGGLE_COMPANY", 0, 0, ""
@@ -200,17 +200,17 @@ public class PlayerShopScreen extends Screen {
             )))
             .build());
 
-            int footY = my + mh - 46;
+            int footY = my + mh - 48;
 
             // Price input box
-            priceInput = new EditBox(this.font, mx + 104, footY + 4, 50, 16, Component.literal(AmmoraLang.guiStr("shop.price_input")));
+            priceInput = new EditBox(this.font, mx + 102, footY + 4, 52, 16, Component.literal(AmmoraLang.guiStr("shop.price_input")));
             priceInput.setMaxLength(8);
             if (selectedSlot >= 0 && selectedSlot < data.slots().size()) {
                 priceInput.setValue(String.format("%.2f", data.slots().get(selectedSlot).priceCbx()).replace(',', '.'));
             }
             this.addRenderableWidget(priceInput);
 
-            // Set price button
+            // Set price button (sufficient width so text is never truncated)
             this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("shop.btn_set_price")), b -> {
                 try {
                     double p = Double.parseDouble(priceInput.getValue().replace(',', '.'));
@@ -218,20 +218,20 @@ public class PlayerShopScreen extends Screen {
                             data.shopId(), "SET_PRICE", selectedSlot, p, ""
                     ));
                 } catch (NumberFormatException ignored) {}
-            }).bounds(mx + 158, footY + 4, 54, 16).build());
+            }).bounds(mx + 158, footY + 4, 76, 16).build());
 
             // Insert from hand button
             this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("shop.btn_from_hand")), b -> {
                 PacketDistributor.sendToServer(new ServerboundConfigureShopPayload(
                         data.shopId(), "INSERT_HAND", selectedSlot, 0, ""
                 ));
-            }).bounds(mx + 216, footY + 4, 75, 16).build());
+            }).bounds(mx + 238, footY + 4, 88, 16).build());
 
             // Open inventory selector modal button
             this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("shop.btn_inventory")), b -> {
                 this.showInventoryModal = true;
                 rebuildWidgets();
-            }).bounds(mx + 295, footY + 4, 79, 16).build());
+            }).bounds(mx + 330, footY + 4, 100, 16).build());
 
             // Extract item back to inventory button
             boolean slotHasItems = selectedSlot >= 0 && selectedSlot < data.slots().size()
@@ -241,22 +241,7 @@ public class PlayerShopScreen extends Screen {
                     PacketDistributor.sendToServer(new ServerboundConfigureShopPayload(
                             data.shopId(), "EXTRACT_ITEM", selectedSlot, 0, ""
                     ));
-                }).bounds(mx + 10, footY + 24, 115, 16).build());
-            }
-
-            // Toggle broadcast button
-            if (data.networkUnlocked()) {
-                String bcastText = data.isBroadcast() ? AmmoraLang.guiStr("shop.net_on") : AmmoraLang.guiStr("shop.net_off");
-                this.addRenderableWidget(Button.builder(Component.literal(bcastText), b -> {
-                    PacketDistributor.sendToServer(new ServerboundConfigureShopPayload(
-                            data.shopId(), "TOGGLE_BROADCAST", 0, 0, ""
-                    ));
-                }).bounds(mx + 185, footY + 24, 85, 16).build());
-            } else {
-                this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("shop.net_locked")), b -> {
-                    this.showUpgradesModal = true;
-                    rebuildWidgets();
-                }).bounds(mx + 185, footY + 24, 85, 16).build());
+                }).bounds(mx + 10, footY + 24, 126, 16).build());
             }
 
             // Claim revenue button
@@ -267,23 +252,42 @@ public class PlayerShopScreen extends Screen {
             } else {
                 revText = AmmoraLang.guiStr("shop.btn_withdraw_rev", data.accumulatedRevenue());
             }
+            int claimW = 106;
+            int claimX = mx + mw - 10 - claimW;
             var claimBtn = Button.builder(Component.literal(revText), b -> {
                 PacketDistributor.sendToServer(new ServerboundConfigureShopPayload(
                         data.shopId(), "CLAIM_REVENUE", 0, 0, ""
                 ));
-            }).bounds(mx + 275, footY + 24, 99, 16).build();
+            }).bounds(claimX, footY + 24, claimW, 16).build();
             claimBtn.active = canClaim;
             if (hasLinkedComp && !canClaim) {
                 claimBtn.setTooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("shop.auto_revenue_tooltip", data.linkedCompanyName()))));
             }
             this.addRenderableWidget(claimBtn);
+
+            // Toggle broadcast button
+            int bcastW = 100;
+            int bcastX = claimX - 6 - bcastW;
+            if (data.networkUnlocked()) {
+                String bcastText = data.isBroadcast() ? AmmoraLang.guiStr("shop.net_on") : AmmoraLang.guiStr("shop.net_off");
+                this.addRenderableWidget(Button.builder(Component.literal(bcastText), b -> {
+                    PacketDistributor.sendToServer(new ServerboundConfigureShopPayload(
+                            data.shopId(), "TOGGLE_BROADCAST", 0, 0, ""
+                    ));
+                }).bounds(bcastX, footY + 24, bcastW, 16).build());
+            } else {
+                this.addRenderableWidget(Button.builder(Component.literal(AmmoraLang.guiStr("shop.net_locked")), b -> {
+                    this.showUpgradesModal = true;
+                    rebuildWidgets();
+                }).bounds(bcastX, footY + 24, bcastW, 16).build());
+            }
         }
 
         // Action buttons on cards
-        int startX = mx + 12;
+        int startX = mx + 11;
         int startY = my + 36;
-        int cardW = 68;
-        int cardH = 74;
+        int cardW = 78;
+        int cardH = 76;
 
         for (int i = 0; i < 10; i++) {
             if (i >= data.maxSlots()) {
@@ -293,7 +297,7 @@ public class PlayerShopScreen extends Screen {
 
             int col = i % 5;
             int row = i / 5;
-            int cx = startX + col * (cardW + 5);
+            int cx = startX + col * (cardW + 7);
             int cy = startY + row * (cardH + 6);
             final int slotIdx = i;
 
@@ -312,7 +316,7 @@ public class PlayerShopScreen extends Screen {
                     var slotItem = data.slots().get(slotIdx);
                     if (slotItem.stockCount() > 0) {
                         int stock = slotItem.stockCount();
-                        int btnY = cy + cardH - 16;
+                        int btnY = cy + cardH - 18;
 
                         // 1 pc button
                         double total1 = slotItem.priceCbx();
@@ -320,7 +324,7 @@ public class PlayerShopScreen extends Screen {
                             PacketDistributor.sendToServer(new ServerboundShopPurchasePayload(
                                     data.shopId(), slotIdx, 1, false
                             ));
-                        }).bounds(cx + 2, btnY, 20, 14)
+                        }).bounds(cx + 3, btnY, 23, 14)
                           .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("shop.btn_buy_tooltip", String.format(Locale.US, "%.2f", total1)))))
                           .build();
                         btn1.active = stock >= 1;
@@ -332,7 +336,7 @@ public class PlayerShopScreen extends Screen {
                             PacketDistributor.sendToServer(new ServerboundShopPurchasePayload(
                                     data.shopId(), slotIdx, 16, false
                             ));
-                        }).bounds(cx + 24, btnY, 20, 14)
+                        }).bounds(cx + 28, btnY, 23, 14)
                           .tooltip(Tooltip.create(Component.literal(stock >= 16
                                   ? AmmoraLang.guiStr("shop.btn_buy_n_tooltip", 16, String.format(Locale.US, "%.2f", total16))
                                   : AmmoraLang.guiStr("shop.btn_buy_insufficient", 16))))
@@ -346,7 +350,7 @@ public class PlayerShopScreen extends Screen {
                             PacketDistributor.sendToServer(new ServerboundShopPurchasePayload(
                                     data.shopId(), slotIdx, 64, false
                             ));
-                        }).bounds(cx + 46, btnY, 20, 14)
+                        }).bounds(cx + 53, btnY, 23, 14)
                           .tooltip(Tooltip.create(Component.literal(stock >= 64
                                   ? AmmoraLang.guiStr("shop.btn_buy_n_tooltip", 64, String.format(Locale.US, "%.2f", total64))
                                   : AmmoraLang.guiStr("shop.btn_buy_insufficient", 64))))
@@ -390,7 +394,7 @@ public class PlayerShopScreen extends Screen {
             return;
         }
 
-        int mw = 384, mh = 248;
+        int mw = 440, mh = 254;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
@@ -411,7 +415,7 @@ public class PlayerShopScreen extends Screen {
             String ownerLine = ownerStr + " §8| §e" + String.format(Locale.US, "%.2f CBX", data.buyerBalanceCbx());
             gg.drawString(this.font, ownerLine, mx + 10, my + 18, 0xFFFFFFFF);
         } else {
-            String titleStr = "§b⚡ " + truncate(data.shopName(), 28);
+            String titleStr = "§b⚡ " + truncate(data.shopName(), 32);
             gg.drawString(this.font, titleStr, mx + 10, my + 8, 0xFFFFFFFF);
 
             String ownerStr = AmmoraLang.guiStr("shop.owner_label", data.ownerName());
@@ -425,17 +429,17 @@ public class PlayerShopScreen extends Screen {
         }
 
         // Render 10 Cards
-        int startX = mx + 12;
+        int startX = mx + 11;
         int startY = my + 36;
-        int cardW = 68;
-        int cardH = 74;
+        int cardW = 78;
+        int cardH = 76;
 
         PlayerShopDataPayload.ShopSlotItem hoveredSlot = null;
 
         for (int i = 0; i < 10; i++) {
             int col = i % 5;
             int row = i / 5;
-            int cx = startX + col * (cardW + 5);
+            int cx = startX + col * (cardW + 7);
             int cy = startY + row * (cardH + 6);
 
             if (i >= data.maxSlots()) {
@@ -518,7 +522,7 @@ public class PlayerShopScreen extends Screen {
                 }
 
                 // Check Hover (exclude bottom button area when customer buy buttons are present)
-                int hoverMaxY = (!data.isOwner() && slotItem.stockCount() > 0) ? (cy + cardH - 18) : (cy + cardH);
+                int hoverMaxY = (!data.isOwner() && slotItem.stockCount() > 0) ? (cy + cardH - 20) : (cy + cardH);
                 if (mouseX >= cx && mouseX <= cx + cardW && mouseY >= cy && mouseY <= hoverMaxY) {
                     hoveredSlot = slotItem;
                 }
@@ -527,13 +531,13 @@ public class PlayerShopScreen extends Screen {
 
         // Render Owner console footer
         if (data.isOwner()) {
-            int footY = my + mh - 46;
+            int footY = my + mh - 48;
             gg.fill(mx + 1, footY, mx + mw - 1, my + mh - 1, COLOR_PANEL_HEADER);
             gg.hLine(mx + 1, mx + mw - 1, footY, COLOR_BORDER_MUTED);
 
             String selTitle = AmmoraLang.guiStr("shop.slot_sel_title", selectedSlot + 1);
             gg.drawString(this.font, selTitle, mx + 8, footY + 8, 0xFFFFFFFF);
-            gg.drawString(this.font, AmmoraLang.guiStr("shop.slot_price_label"), mx + 68, footY + 8, 0xFFFFFFFF);
+            gg.drawString(this.font, AmmoraLang.guiStr("shop.slot_price_label"), mx + 66, footY + 8, 0xFFFFFFFF);
 
             boolean slotHasItems = selectedSlot >= 0 && selectedSlot < data.slots().size()
                     && data.slots().get(selectedSlot).stockCount() > 0;

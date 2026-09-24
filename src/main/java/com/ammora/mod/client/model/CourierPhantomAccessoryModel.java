@@ -59,7 +59,19 @@ public class CourierPhantomAccessoryModel extends HierarchicalModel<CourierPhant
                 PartPose.ZERO
         );
 
-        return LayerDefinition.create(meshdefinition, 32, 32);
+        // Belly Delivery Parcel Crate and Harness Straps fitted under phantom belly
+        // Phantom body box is (-3.0F, -2.0F, -8.0F, 5.0F, 3.0F, 9.0F). Bottom of belly is y = 1.0F.
+        body.addOrReplaceChild("belly_crate", CubeListBuilder.create()
+                // Wooden parcel crate
+                .texOffs(0, 32).addBox(-2.6F, 0.9F, -5.5F, 4.2F, 3.2F, 5.0F)
+                // Front harness strap
+                .texOffs(0, 44).addBox(-2.8F, 0.8F, -4.8F, 4.6F, 3.4F, 1.0F)
+                // Rear harness strap
+                .texOffs(0, 44).addBox(-2.8F, 0.8F, -2.2F, 4.6F, 3.4F, 1.0F),
+                PartPose.ZERO
+        );
+
+        return LayerDefinition.create(meshdefinition, 64, 64);
     }
 
     @Override

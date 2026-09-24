@@ -240,14 +240,24 @@ public final class EscrowPacketHandler {
 
             String activeCourier = "BEE";
             List<String> unlockedCouriers = List.of("BEE");
+            List<MarketplaceDataPayload.CourierProgressItem> courierProgress = new ArrayList<>();
             if (AmmoraMod.getMarketDAO() != null) {
                 activeCourier = AmmoraMod.getMarketDAO().getActiveCourier(player.getUUID());
                 unlockedCouriers = AmmoraMod.getMarketDAO().getUnlockedCouriers(player.getUUID());
+                com.ammora.mod.db.MarketDAO.CourierProgressStats stats = AmmoraMod.getMarketDAO().getCourierProgressStats(player.getUUID());
+                for (com.ammora.mod.entity.CourierType type : com.ammora.mod.entity.CourierType.values()) {
+                    courierProgress.add(new MarketplaceDataPayload.CourierProgressItem(
+                            type.getId(),
+                            type.getProgress(stats),
+                            type.getTargetGoal(),
+                            type.isClaimable(stats)
+                    ));
+                }
             }
 
             PacketDistributor.sendToPlayer(player, new MarketplaceDataPayload(
                     balance, repLevel, catalog, shops, buyReqs, questItems, txs, deliveries, auctionItems, companyData,
-                    activeCourier, unlockedCouriers, statusMsg, isError
+                    activeCourier, unlockedCouriers, courierProgress, statusMsg, isError
             ));
         } catch (Exception e) {
             AmmoraMod.LOGGER.error("Failed to send marketplace data to " + player.getName().getString(), e);
@@ -651,43 +661,57 @@ public final class EscrowPacketHandler {
             CourierType type = CourierType.fromId(payload.courierId());
             UUID uuid = player.getUUID();
 
-            if ("BUY".equalsIgnoreCase(payload.action())) {
+            if ("BUY".equalsIgnoreCase(payload.action()) || "CLAIM".equalsIgnoreCase(payload.action())) {
                 if (AmmoraMod.getMarketDAO().isCourierUnlocked(uuid, type.getId())) {
                     sendMarketplaceData(player, AmmoraLang.notify("courier.already_unlocked"), true);
                     return;
                 }
 
-                double price = type.getPriceCbx();
-                if (price > 0.0) {
-                    PlayerAccount acc = AmmoraMod.getMarketDAO().getAccount(uuid, player.getName().getString());
-                    if (acc == null || acc.getBalanceCbx() < price) {
-                        sendMarketplaceData(player, AmmoraLang.notify("courier.insufficient_funds", MarketEngine.round2(price)), true);
-                        return;
+                com.ammora.mod.db.MarketDAO.CourierProgressStats stats = AmmoraMod.getMarketDAO().getCourierProgressStats(uuid);
+                boolean isClaimable = type.isClaimable(stats);
+
+                if (isClaimable) {
+                    // Free achievement unlock
+                    AmmoraMod.getMarketDAO().unlockCourier(uuid, type.getId(), System.currentTimeMillis());
+                    AmmoraMod.getMarketDAO().setActiveCourier(uuid, type.getId());
+
+                    player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9F, 1.0F);
+                    player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.7F, 1.4F);
+                    sendMarketplaceData(player, AmmoraLang.notify("courier.achievement_unlocked", AmmoraLang.guiStr(type.getNameKey())), false);
+                } else {
+                    // Paid buyout with CBX
+                    double price = type.getPriceCbx();
+                    if (price > 0.0) {
+                        PlayerAccount acc = AmmoraMod.getMarketDAO().getAccount(uuid, player.getName().getString());
+                        if (acc == null || acc.getBalanceCbx() < price) {
+                            sendMarketplaceData(player, AmmoraLang.notify("courier.insufficient_funds_buyout", MarketEngine.round2(price)), true);
+                            return;
+                        }
+                        acc.withdraw(price);
+                        AmmoraMod.getMarketDAO().saveAccount(acc);
+                        AmmoraMod.getMarketDAO().recordMarketTransaction(new MarketTxRecord(
+                                UUID.randomUUID().toString(),
+                                "COURIER_BUYOUT",
+                                "",
+                                uuid,
+                                player.getName().getString(),
+                                new UUID(0L, 0L),
+                                "SYSTEM",
+                                "ammora:courier_" + type.getId().toLowerCase(Locale.ROOT),
+                                "Courier: " + type.getId(),
+                                1,
+                                price,
+                                0.0,
+                                System.currentTimeMillis()
+                        ));
                     }
-                    acc.withdraw(price);
-                    AmmoraMod.getMarketDAO().saveAccount(acc);
-                    AmmoraMod.getMarketDAO().recordMarketTransaction(new MarketTxRecord(
-                            UUID.randomUUID().toString(),
-                            "COURIER_UNLOCK",
-                            "",
-                            uuid,
-                            player.getName().getString(),
-                            new UUID(0L, 0L),
-                            "SYSTEM",
-                            "ammora:courier_" + type.getId().toLowerCase(Locale.ROOT),
-                            "Courier: " + type.getId(),
-                            1,
-                            price,
-                            0.0,
-                            System.currentTimeMillis()
-                    ));
+
+                    AmmoraMod.getMarketDAO().unlockCourier(uuid, type.getId(), System.currentTimeMillis());
+                    AmmoraMod.getMarketDAO().setActiveCourier(uuid, type.getId());
+
+                    player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.5F);
+                    sendMarketplaceData(player, AmmoraLang.notify("courier.buyout_success", AmmoraLang.guiStr(type.getNameKey()), MarketEngine.round2(type.getPriceCbx())), false);
                 }
-
-                AmmoraMod.getMarketDAO().unlockCourier(uuid, type.getId(), System.currentTimeMillis());
-                AmmoraMod.getMarketDAO().setActiveCourier(uuid, type.getId());
-
-                player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.5F);
-                sendMarketplaceData(player, AmmoraLang.notify("courier.unlocked", AmmoraLang.guiStr(type.getNameKey())), false);
             } else if ("SELECT".equalsIgnoreCase(payload.action())) {
                 if (!AmmoraMod.getMarketDAO().isCourierUnlocked(uuid, type.getId())) {
                     sendMarketplaceData(player, AmmoraLang.notify("courier.not_unlocked"), true);

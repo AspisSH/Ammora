@@ -42,7 +42,7 @@ public class CourierBeeRenderer extends MobRenderer<CourierBeeEntity, BeeModel<C
     protected void renderNameTag(CourierBeeEntity entity, Component displayName, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, float partialTick) {
         if (entity.isHeavy()) {
             poseStack.pushPose();
-            poseStack.translate(0.0D, 0.85D, 0.0D);
+            poseStack.translate(0.0D, 1.55D, 0.0D);
             super.renderNameTag(entity, displayName, poseStack, bufferSource, packedLight, partialTick);
             poseStack.popPose();
         } else {

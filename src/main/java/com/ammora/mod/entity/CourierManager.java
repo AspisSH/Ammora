@@ -86,6 +86,26 @@ public class CourierManager {
                     dispatchSound = SoundEvents.PHANTOM_FLAP;
                 }
             }
+            case PARROT -> {
+                CourierParrotEntity parrot = AmmoraMod.COURIER_PARROT.get().create(level);
+                if (parrot != null) {
+                    parrot.moveTo(spawnX, spawnY, spawnZ, recipient.getYRot(), 0.0F);
+                    parrot.setDeliveryOrder(recipient, nonNullItems);
+                    level.addFreshEntity(parrot);
+                    courier = parrot;
+                    dispatchSound = SoundEvents.PARROT_FLY;
+                }
+            }
+            case DRONE -> {
+                CourierDroneEntity drone = AmmoraMod.COURIER_DRONE.get().create(level);
+                if (drone != null) {
+                    drone.moveTo(spawnX, spawnY, spawnZ, recipient.getYRot(), 0.0F);
+                    drone.setDeliveryOrder(recipient, nonNullItems);
+                    level.addFreshEntity(drone);
+                    courier = drone;
+                    dispatchSound = SoundEvents.BEACON_ACTIVATE;
+                }
+            }
             case BEE -> {
                 CourierBeeEntity bee = AmmoraMod.COURIER_BEE.get().create(level);
                 if (bee != null) {
@@ -100,7 +120,7 @@ public class CourierManager {
         }
 
         if (courier != null) {
-            float pitch = (type == CourierType.HEAVY_BEE) ? 0.6F : 1.1F;
+            float pitch = (type == CourierType.HEAVY_BEE) ? 0.6F : (type == CourierType.DRONE ? 1.6F : 1.1F);
             level.playSound(null, recipient.blockPosition(), dispatchSound, SoundSource.PLAYERS, 0.8F, pitch);
             recipient.displayClientMessage(AmmoraLang.message("courier.dispatched"), true);
         } else {

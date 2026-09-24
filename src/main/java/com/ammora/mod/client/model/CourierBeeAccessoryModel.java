@@ -50,7 +50,7 @@ public class CourierBeeAccessoryModel extends HierarchicalModel<CourierBeeEntity
                 PartPose.ZERO
         );
 
-        return LayerDefinition.create(meshdefinition, 32, 32);
+        return LayerDefinition.create(meshdefinition, 64, 64);
     }
 
     @Override

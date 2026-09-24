@@ -88,6 +88,10 @@ public class TerminalScreen extends Screen {
     private static final int COLOR_PURPLE_DANGER = 0xFFE040FB;
     private static final int COLOR_TEXT_MUTED = 0xFF9E9284;
 
+    // Asset Sidebar layout constants
+    private static final int ASSET_SIDEBAR_WIDTH = 114;
+    private static final int ASSET_CARD_HEIGHT = 28;
+
     public TerminalScreen(MarketDataPayload initialData) {
         super(Component.translatable("gui.ammora.terminal.title"));
         this.data = initialData;
@@ -149,7 +153,7 @@ public class TerminalScreen extends Screen {
         if (visibleCandles <= 0) {
             int panelW = Math.max(152, Math.min(180, (int) (this.width * 0.30f)));
             int rightX = this.width - panelW - 8;
-            int sidebarW = showAssetSidebar ? 84 : 0;
+            int sidebarW = showAssetSidebar ? ASSET_SIDEBAR_WIDTH : 0;
             int chartX = 8 + (showAssetSidebar ? sidebarW + 4 : 0);
             int chartW = rightX - chartX - 4;
             int plotW = chartW - 54;
@@ -704,13 +708,13 @@ public class TerminalScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        int sidebarW = showAssetSidebar ? 84 : 0;
+        int sidebarW = showAssetSidebar ? ASSET_SIDEBAR_WIDTH : 0;
         if (showAssetSidebar && mouseX >= 8 && mouseX <= 8 + sidebarW && mouseY >= 44 && mouseY <= this.height - 8) {
             List<MarketDataPayload.MarketSummaryItem> markets = (data != null && data.availableMarkets() != null
                     && !data.availableMarkets().isEmpty())
                             ? data.availableMarkets()
                             : getDefaultMarkets();
-            int rowH = 22;
+            int rowH = ASSET_CARD_HEIGHT;
             int visibleH = this.height - 44 - 8 - 20;
             int totalContentH = markets.size() * rowH;
             int maxScroll = Math.max(0, totalContentH - visibleH);
@@ -744,7 +748,7 @@ public class TerminalScreen extends Screen {
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         int panelW = Math.max(152, Math.min(180, (int) (this.width * 0.30f)));
         int rightX = this.width - panelW - 8;
-        int sidebarW = showAssetSidebar ? 84 : 0;
+        int sidebarW = showAssetSidebar ? ASSET_SIDEBAR_WIDTH : 0;
         int chartX = 8 + (showAssetSidebar ? sidebarW + 4 : 0);
         int chartW = rightX - chartX - 4;
         int chartY = 44;
@@ -1047,7 +1051,7 @@ public class TerminalScreen extends Screen {
         if (showAssetSidebar && button == 0) {
             int sidebarX = 8;
             int sidebarY = 44;
-            int sidebarW = 84;
+            int sidebarW = ASSET_SIDEBAR_WIDTH;
             int sidebarH = this.height - sidebarY - 8;
 
             List<MarketDataPayload.MarketSummaryItem> markets = (data != null && data.availableMarkets() != null
@@ -1055,7 +1059,7 @@ public class TerminalScreen extends Screen {
                             ? data.availableMarkets()
                             : getDefaultMarkets();
 
-            int rowH = 22;
+            int rowH = ASSET_CARD_HEIGHT;
             int visibleH = sidebarH - 20;
             int totalContentH = markets.size() * rowH;
             int maxScroll = Math.max(0, totalContentH - visibleH);
@@ -1067,8 +1071,8 @@ public class TerminalScreen extends Screen {
                 int idx = clickedY / rowH;
                 if (idx >= 0 && idx < markets.size()) {
                     var chosen = markets.get(idx);
-                    int boxX = sidebarX + contentW - 12;
-                    boolean clickCheckbox = mouseX >= boxX;
+                    int boxX = sidebarX + contentW - 13;
+                    boolean clickCheckbox = mouseX >= boxX - 2;
                     if (clickCheckbox) {
                         PacketDistributor.sendToServer(new ServerboundSelectResourcePayload(chosen.resourceId(), true));
                         if (this.minecraft != null) {
@@ -1094,7 +1098,7 @@ public class TerminalScreen extends Screen {
         if (button == 0) {
             int panelW = Math.max(152, Math.min(180, (int) (this.width * 0.30f)));
             int rightX = this.width - panelW - 8;
-            int sidebarW = showAssetSidebar ? 84 : 0;
+            int sidebarW = showAssetSidebar ? ASSET_SIDEBAR_WIDTH : 0;
             int chartX = 8 + (showAssetSidebar ? sidebarW + 4 : 0);
             int chartW = rightX - chartX - 4;
             int chartY = 44;
@@ -1135,7 +1139,7 @@ public class TerminalScreen extends Screen {
         if (button == 0 && panOffset > 0) {
             int panelW = Math.max(152, Math.min(180, (int) (this.width * 0.30f)));
             int rightX = this.width - panelW - 8;
-            int sidebarW = showAssetSidebar ? 80 : 0;
+            int sidebarW = showAssetSidebar ? ASSET_SIDEBAR_WIDTH : 0;
             int chartX = 8 + (showAssetSidebar ? sidebarW + 4 : 0);
             if (mouseX >= chartX + 8 && mouseX <= chartX + 220 && mouseY >= 44 && mouseY <= 58) {
                 panOffset = 0;
@@ -1175,7 +1179,7 @@ public class TerminalScreen extends Screen {
                 && !data.activeEventTitle().isEmpty()) {
             int panelW = Math.max(152, Math.min(180, (int) (this.width * 0.30f)));
             int rightX = this.width - panelW - 8;
-            int sidebarW = showAssetSidebar ? 84 : 0;
+            int sidebarW = showAssetSidebar ? ASSET_SIDEBAR_WIDTH : 0;
             int chartX = 8 + (showAssetSidebar ? sidebarW + 4 : 0);
             int chartW = rightX - chartX - 4;
             int chartY = 44;
@@ -1286,7 +1290,7 @@ public class TerminalScreen extends Screen {
     private void renderAssetSidebar(GuiGraphics g, int mouseX, int mouseY) {
         int sidebarX = 8;
         int sidebarY = 44;
-        int sidebarW = 84;
+        int sidebarW = ASSET_SIDEBAR_WIDTH;
         int sidebarH = this.height - sidebarY - 8;
         int visibleH = sidebarH - 20;
 
@@ -1300,7 +1304,7 @@ public class TerminalScreen extends Screen {
                         ? data.availableMarkets()
                         : getDefaultMarkets();
 
-        int rowH = 22;
+        int rowH = ASSET_CARD_HEIGHT;
         int totalContentH = markets.size() * rowH;
         int maxScroll = Math.max(0, totalContentH - visibleH);
         assetScrollOffset = Math.max(0, Math.min(maxScroll, assetScrollOffset));
@@ -1329,7 +1333,7 @@ public class TerminalScreen extends Screen {
             try {
                 Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(m.resourceId()));
                 if (item != null) {
-                    g.renderItem(new ItemStack(item), sidebarX + 3, rowY + (rowH - 16) / 2);
+                    g.renderItem(new ItemStack(item), sidebarX + 4, rowY + (rowH - 16) / 2);
                 }
             } catch (Exception ignored) {
             }
@@ -1343,7 +1347,7 @@ public class TerminalScreen extends Screen {
             // Redstone checkbox indicator on the right of each asset row
             boolean isRowPinned = data != null && data.pinnedResourceId() != null
                     && m.resourceId().equals(data.pinnedResourceId());
-            int boxX = sidebarX + contentW - 12;
+            int boxX = sidebarX + contentW - 13;
             int boxY = rowY + (rowH - 9) / 2;
             g.fill(boxX, boxY, boxX + 9, boxY + 9, isRowPinned ? 0x88FF1744 : 0xFF141E2D);
             renderBorder(g, boxX, boxY, 9, 9, isRowPinned ? COLOR_RED : 0xFF3E4F66);
@@ -1352,13 +1356,14 @@ public class TerminalScreen extends Screen {
             }
 
             // Line 1: Resource Name
-            int maxNameW = boxX - (sidebarX + 22) - 2;
+            int badgeW = lockBadge.isEmpty() ? 0 : this.font.width(lockBadge);
+            int maxNameW = boxX - (sidebarX + 24) - 2 - badgeW;
             String trimmedName = this.font.plainSubstrByWidth(shortName, maxNameW);
-            g.drawString(this.font, (isSelected ? "§6" : (m.isUnlocked() ? "§f" : "§7")) + trimmedName + lockBadge, sidebarX + 22, rowY + 2, 0xFFFFFFFF);
+            g.drawString(this.font, (isSelected ? "§6" : (m.isUnlocked() ? "§f" : "§7")) + trimmedName + lockBadge, sidebarX + 24, rowY + 4, 0xFFFFFFFF);
 
-            // Line 2: Price + Modifier (Placed on row 2 so it never collides with checkbox!)
+            // Line 2: Price + Modifier (Placed on row 2 with clean spacing, never collides with checkbox!)
             String priceAndMod = "§e" + String.format(Locale.US, "%.1f", m.spotPrice()) + " CBX " + rowModStr;
-            g.drawString(this.font, priceAndMod, sidebarX + 22, rowY + 12, 0xFFFFFFFF);
+            g.drawString(this.font, priceAndMod, sidebarX + 24, rowY + 15, 0xFFFFFFFF);
         }
 
         g.disableScissor();
@@ -1390,7 +1395,7 @@ public class TerminalScreen extends Screen {
     private void renderChart(GuiGraphics g, int mouseX, int mouseY) {
         int panelW = Math.max(152, Math.min(180, (int) (this.width * 0.30f)));
         int rightX = this.width - panelW - 8;
-        int sidebarW = showAssetSidebar ? 84 : 0;
+        int sidebarW = showAssetSidebar ? ASSET_SIDEBAR_WIDTH : 0;
         int chartX = 8 + (showAssetSidebar ? sidebarW + 4 : 0);
         int chartW = rightX - chartX - 4;
         int chartY = 44;
@@ -1802,11 +1807,11 @@ public class TerminalScreen extends Screen {
             if (item != null && item != net.minecraft.world.item.Items.AIR) {
                 String iname = item.getDescription().getString();
                 if (iname != null && !iname.isEmpty()) {
-                    return (iname.length() > 7 ? iname.substring(0, 6) + ".." : iname);
+                    return iname;
                 }
             }
         } catch (Exception ignored) {}
-        return (defaultName.length() > 7 ? defaultName.substring(0, 6) + ".." : defaultName);
+        return defaultName;
     }
 
     private List<MarketDataPayload.MarketSummaryItem> getDefaultMarkets() {

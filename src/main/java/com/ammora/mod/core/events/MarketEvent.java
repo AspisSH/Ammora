@@ -53,13 +53,23 @@ public class MarketEvent {
     }
 
     public String getDescription() {
+        String desc = "";
         if (descriptionKey != null && !descriptionKey.isEmpty()) {
             try {
                 String localized = Component.translatable(descriptionKey).getString();
-                if (!localized.equals(descriptionKey)) return localized;
+                if (!localized.equals(descriptionKey)) {
+                    desc = localized;
+                }
             } catch (Throwable ignored) {}
         }
-        return description != null ? description : "";
+        if (desc.isEmpty()) {
+            desc = (description != null) ? description : "";
+        }
+        if (!desc.isEmpty() && Math.abs(priceMultiplier) > 0.0001) {
+            String pctStr = (priceMultiplier >= 0 ? "+" : "") + Math.round(priceMultiplier * 100.0) + "%";
+            desc = desc.replaceAll("[+-]?\\d+%", pctStr);
+        }
+        return desc;
     }
 
     public String getDescriptionKey() {

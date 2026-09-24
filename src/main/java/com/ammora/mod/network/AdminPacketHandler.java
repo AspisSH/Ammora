@@ -90,17 +90,7 @@ public class AdminPacketHandler {
                                 .findFirst().orElse(null);
                         if (template != null) {
                             int durationDays = Math.max(1, (int) numVal);
-                            MarketEvent newEvent = new MarketEvent(
-                                    template.getId(),
-                                    template.getTitle(),
-                                    template.getTitleKey(),
-                                    template.getDescription(),
-                                    template.getDescriptionKey(),
-                                    template.getAffectedResourceId(),
-                                    template.getPriceMultiplier(),
-                                    template.getWeight(),
-                                    durationDays
-                            );
+                            MarketEvent newEvent = eventMgr.createEventFromTemplate(template, durationDays);
                             eventMgr.setActiveEvent(newEvent, AmmoraMod.getMarketManager());
                             if (player.getServer() != null) {
                                 player.getServer().getPlayerList().broadcastSystemMessage(
