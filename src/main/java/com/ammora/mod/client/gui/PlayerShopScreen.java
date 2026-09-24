@@ -807,10 +807,7 @@ public class PlayerShopScreen extends Screen {
     }
 
     private void drawOutlinedBox(GuiGraphics gg, int x, int y, int w, int h, int color) {
-        gg.hLine(x, x + w - 1, y, color);
-        gg.hLine(x, x + w - 1, y + h - 1, color);
-        gg.vLine(x, y, y + h - 1, color);
-        gg.vLine(x + w - 1, y, y + h - 1, color);
+        gg.renderOutline(x, y, w, h, color);
     }
 
     @Override

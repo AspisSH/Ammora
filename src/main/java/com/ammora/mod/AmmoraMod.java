@@ -39,6 +39,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
@@ -134,6 +135,72 @@ public class AmmoraMod {
             () -> new com.ammora.mod.items.MarketTabletItem(new Item.Properties().stacksTo(1))
     );
 
+    // ATM Block & Item
+    public static final DeferredBlock<com.ammora.mod.blocks.AtmBlock> ATM = BLOCKS.register(
+            "atm",
+            () -> new com.ammora.mod.blocks.AtmBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLACK).strength(5.0F).requiresCorrectToolForDrops())
+    );
+    public static final DeferredItem<com.ammora.mod.blocks.AtmBlockItem> ATM_ITEM = ITEMS.register(
+            "atm",
+            () -> new com.ammora.mod.blocks.AtmBlockItem(ATM.get(), new Item.Properties())
+    );
+
+    // Physical Currency Banknotes (10, 100, 1,000 CBX)
+    public static final DeferredItem<com.ammora.mod.items.BanknoteItem> BANKNOTE_10 = ITEMS.register(
+            "banknote_10",
+            () -> new com.ammora.mod.items.BanknoteItem(new Item.Properties(), 10)
+    );
+    public static final DeferredItem<com.ammora.mod.items.BanknoteItem> BANKNOTE_100 = ITEMS.register(
+            "banknote_100",
+            () -> new com.ammora.mod.items.BanknoteItem(new Item.Properties(), 100)
+    );
+    public static final DeferredItem<com.ammora.mod.items.BanknoteItem> BANKNOTE_1000 = ITEMS.register(
+            "banknote_1000",
+            () -> new com.ammora.mod.items.BanknoteItem(new Item.Properties(), 1000)
+    );
+
+    // Money Stacks (Bundles of 9 Banknotes)
+    public static final DeferredItem<com.ammora.mod.items.MoneyStackItem> MONEY_STACK_10 = ITEMS.register(
+            "money_stack_10",
+            () -> new com.ammora.mod.items.MoneyStackItem(new Item.Properties(), 10, 9)
+    );
+    public static final DeferredItem<com.ammora.mod.items.MoneyStackItem> MONEY_STACK_100 = ITEMS.register(
+            "money_stack_100",
+            () -> new com.ammora.mod.items.MoneyStackItem(new Item.Properties(), 100, 9)
+    );
+    public static final DeferredItem<com.ammora.mod.items.MoneyStackItem> MONEY_STACK_1000 = ITEMS.register(
+            "money_stack_1000",
+            () -> new com.ammora.mod.items.MoneyStackItem(new Item.Properties(), 1000, 9)
+    );
+
+    // Money Blocks (Prestigious Flex Cubes composed of 81 Banknotes / 9 Stacks)
+    public static final DeferredBlock<Block> MONEY_BLOCK_10 = BLOCKS.register(
+            "money_block_10",
+            () -> new Block(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GREEN).strength(1.5F).sound(SoundType.WOOD))
+    );
+    public static final DeferredItem<com.ammora.mod.blocks.MoneyBlockItem> MONEY_BLOCK_10_ITEM = ITEMS.register(
+            "money_block_10",
+            () -> new com.ammora.mod.blocks.MoneyBlockItem(MONEY_BLOCK_10.get(), new Item.Properties(), 10, 81)
+    );
+
+    public static final DeferredBlock<Block> MONEY_BLOCK_100 = BLOCKS.register(
+            "money_block_100",
+            () -> new Block(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLUE).strength(1.5F).sound(SoundType.WOOD))
+    );
+    public static final DeferredItem<com.ammora.mod.blocks.MoneyBlockItem> MONEY_BLOCK_100_ITEM = ITEMS.register(
+            "money_block_100",
+            () -> new com.ammora.mod.blocks.MoneyBlockItem(MONEY_BLOCK_100.get(), new Item.Properties(), 100, 81)
+    );
+
+    public static final DeferredBlock<Block> MONEY_BLOCK_1000 = BLOCKS.register(
+            "money_block_1000",
+            () -> new Block(BlockBehaviour.Properties.of().mapColor(MapColor.GOLD).strength(1.5F).sound(SoundType.WOOD))
+    );
+    public static final DeferredItem<com.ammora.mod.blocks.MoneyBlockItem> MONEY_BLOCK_1000_ITEM = ITEMS.register(
+            "money_block_1000",
+            () -> new com.ammora.mod.blocks.MoneyBlockItem(MONEY_BLOCK_1000.get(), new Item.Properties(), 1000, 81)
+    );
+
     // Block Entities
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ExchangeTerminalEntity>> EXCHANGE_TERMINAL_BE =
             BLOCK_ENTITIES.register("exchange_terminal", () ->
@@ -153,6 +220,11 @@ public class AmmoraMod {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<com.ammora.mod.blocks.PlayerShopEntity>> PLAYER_SHOP_BE =
             BLOCK_ENTITIES.register("player_shop", () ->
                     BlockEntityType.Builder.of(com.ammora.mod.blocks.PlayerShopEntity::new, PLAYER_SHOP.get()).build(null)
+            );
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<com.ammora.mod.blocks.AtmBlockEntity>> ATM_BE =
+            BLOCK_ENTITIES.register("atm", () ->
+                    BlockEntityType.Builder.of(com.ammora.mod.blocks.AtmBlockEntity::new, ATM.get()).build(null)
             );
 
     // Entities
@@ -207,8 +279,18 @@ public class AmmoraMod {
                         output.accept(TRADE_DOCK_ITEM.get());
                         output.accept(PURCHASE_DOCK_ITEM.get());
                         output.accept(PLAYER_SHOP_ITEM.get());
+                        output.accept(ATM_ITEM.get());
                         output.accept(COLD_WALLET.get());
                         output.accept(MARKET_TABLET.get());
+                        output.accept(BANKNOTE_10.get());
+                        output.accept(BANKNOTE_100.get());
+                        output.accept(BANKNOTE_1000.get());
+                        output.accept(MONEY_STACK_10.get());
+                        output.accept(MONEY_STACK_100.get());
+                        output.accept(MONEY_STACK_1000.get());
+                        output.accept(MONEY_BLOCK_10_ITEM.get());
+                        output.accept(MONEY_BLOCK_100_ITEM.get());
+                        output.accept(MONEY_BLOCK_1000_ITEM.get());
                     })
                     .build()
     );

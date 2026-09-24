@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "ammora:money_block_10"
+    }
+  ],
+  "result": {
+    "id": "ammora:money_stack_10",
+    "count": 9
+  }
+}

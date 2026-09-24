@@ -1,10 +1,12 @@
 package com.ammora.mod.client;
 
+import com.ammora.mod.client.gui.AtmScreen;
 import com.ammora.mod.client.gui.ColdWalletScreen;
 import com.ammora.mod.client.gui.MarketplaceScreen;
 import com.ammora.mod.client.gui.PlayerShopScreen;
 import com.ammora.mod.client.gui.PurchaseDockScreen;
 import com.ammora.mod.client.gui.TerminalScreen;
+import com.ammora.mod.network.ClientboundAtmDataPayload;
 import com.ammora.mod.network.ColdWalletDataPayload;
 import com.ammora.mod.network.MarketDataPayload;
 import com.ammora.mod.network.MarketplaceDataPayload;
@@ -123,4 +125,14 @@ public class ClientPacketHandler {
         Minecraft mc = Minecraft.getInstance();
         mc.setScreen(new com.ammora.mod.client.gui.CompanyInviteScreen(payload.companyId(), payload.companyName(), payload.inviterName()));
     }
+
+    public static void handleAtmData(ClientboundAtmDataPayload payload) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof AtmScreen screen) {
+            screen.updateData(payload);
+        } else {
+            mc.setScreen(new AtmScreen(payload));
+        }
+    }
 }
+

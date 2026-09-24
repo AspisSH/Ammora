@@ -50,6 +50,7 @@ public final class InventoryHelper {
                 if (remaining <= 0) break;
             }
         }
+        player.containerMenu.broadcastChanges();
     }
 
     /**
@@ -66,6 +67,7 @@ public final class InventoryHelper {
             }
             remaining -= count;
         }
+        player.containerMenu.broadcastChanges();
     }
 
     /**
@@ -76,6 +78,7 @@ public final class InventoryHelper {
         if (!player.getInventory().add(stack)) {
             player.drop(stack, false);
         }
+        player.containerMenu.broadcastChanges();
     }
 
     /**

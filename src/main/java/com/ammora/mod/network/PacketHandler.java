@@ -85,6 +85,22 @@ public class PacketHandler {
                 (payload, context) -> context.enqueueWork(() -> ClientPacketHandler.handleAdminData(payload))
         );
 
+        registrar.playToClient(
+                ClientboundAtmDataPayload.TYPE,
+                ClientboundAtmDataPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> ClientPacketHandler.handleAtmData(payload))
+        );
+
+        registrar.playToServer(
+                ServerboundAtmActionPayload.TYPE,
+                ServerboundAtmActionPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer serverPlayer) {
+                        AtmPacketHandler.handleAtmAction(serverPlayer, payload);
+                    }
+                })
+        );
+
         // ----------------------------------------------------
         // Client to Server: Order & Market Terminal Domain
         // ----------------------------------------------------

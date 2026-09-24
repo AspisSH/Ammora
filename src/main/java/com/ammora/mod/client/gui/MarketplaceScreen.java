@@ -1055,7 +1055,7 @@ public class MarketplaceScreen extends Screen {
                     double total = calcRemoteTotal(item.priceCbx(), 1);
                     var btn1 = Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_buy_1")), b -> {
                         attemptPurchase(item.shopId(), item.slotIndex(), item.itemId(), 1);
-                    }).bounds(mx + mw - 76, rowY + 6, 66, 18)
+                    }).bounds(mx + mw - 82, rowY + 6, 66, 18)
                     .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("market.btn_buy_tooltip", String.format(Locale.US, "%.2f", total)))))
                     .build();
                     dynamicCatalogButtons.add(btn1);
@@ -1065,7 +1065,7 @@ public class MarketplaceScreen extends Screen {
                     double total1 = calcRemoteTotal(item.priceCbx(), 1);
                     var btn1 = Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_buy_1")), b -> {
                         attemptPurchase(item.shopId(), item.slotIndex(), item.itemId(), 1);
-                    }).bounds(mx + mw - 124, rowY + 6, 52, 18)
+                    }).bounds(mx + mw - 130, rowY + 6, 52, 18)
                     .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("market.btn_buy_tooltip", String.format(Locale.US, "%.2f", total1)))))
                     .build();
                     dynamicCatalogButtons.add(btn1);
@@ -1074,7 +1074,7 @@ public class MarketplaceScreen extends Screen {
                     double totalAll = calcRemoteTotal(item.priceCbx(), buyAll);
                     var btnAll = Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_buy_all", buyAll)), b -> {
                         attemptPurchase(item.shopId(), item.slotIndex(), item.itemId(), buyAll);
-                    }).bounds(mx + mw - 68, rowY + 6, 58, 18)
+                    }).bounds(mx + mw - 74, rowY + 6, 58, 18)
                     .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("market.btn_buy_n_tooltip", buyAll, String.format(Locale.US, "%.2f", totalAll)))))
                     .build();
                     dynamicCatalogButtons.add(btnAll);
@@ -1085,7 +1085,7 @@ public class MarketplaceScreen extends Screen {
                         double total1 = calcRemoteTotal(item.priceCbx(), 1);
                         var btn1 = Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_buy_1")), b -> {
                             attemptPurchase(item.shopId(), item.slotIndex(), item.itemId(), 1);
-                        }).bounds(mx + mw - 124, rowY + 6, 52, 18)
+                        }).bounds(mx + mw - 130, rowY + 6, 52, 18)
                         .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("market.btn_buy_tooltip", String.format(Locale.US, "%.2f", total1)))))
                         .build();
                         dynamicCatalogButtons.add(btn1);
@@ -1094,7 +1094,7 @@ public class MarketplaceScreen extends Screen {
                         double total16 = calcRemoteTotal(item.priceCbx(), 16);
                         var btn16 = Button.builder(Component.literal(AmmoraLang.guiStr("market.btn_buy_16")), b -> {
                             attemptPurchase(item.shopId(), item.slotIndex(), item.itemId(), 16);
-                        }).bounds(mx + mw - 68, rowY + 6, 58, 18)
+                        }).bounds(mx + mw - 74, rowY + 6, 58, 18)
                         .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("market.btn_buy_n_tooltip", 16, String.format(Locale.US, "%.2f", total16)))))
                         .build();
                         dynamicCatalogButtons.add(btn16);
@@ -1103,7 +1103,7 @@ public class MarketplaceScreen extends Screen {
                         double total1 = calcRemoteTotal(item.priceCbx(), 1);
                         var btn1 = Button.builder(Component.literal("§a1"), b -> {
                             attemptPurchase(item.shopId(), item.slotIndex(), item.itemId(), 1);
-                        }).bounds(mx + mw - 146, rowY + 6, 38, 18)
+                        }).bounds(mx + mw - 152, rowY + 6, 38, 18)
                         .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("market.btn_buy_tooltip", String.format(Locale.US, "%.2f", total1)))))
                         .build();
                         dynamicCatalogButtons.add(btn1);
@@ -1112,7 +1112,7 @@ public class MarketplaceScreen extends Screen {
                         double total16 = calcRemoteTotal(item.priceCbx(), 16);
                         var btn16 = Button.builder(Component.literal("§e16"), b -> {
                             attemptPurchase(item.shopId(), item.slotIndex(), item.itemId(), 16);
-                        }).bounds(mx + mw - 104, rowY + 6, 42, 18)
+                        }).bounds(mx + mw - 110, rowY + 6, 42, 18)
                         .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("market.btn_buy_n_tooltip", 16, String.format(Locale.US, "%.2f", total16)))))
                         .build();
                         dynamicCatalogButtons.add(btn16);
@@ -1122,7 +1122,7 @@ public class MarketplaceScreen extends Screen {
                         double totalMax = calcRemoteTotal(item.priceCbx(), maxBuy);
                         var btnMax = Button.builder(Component.literal(maxLabel), b -> {
                             attemptPurchase(item.shopId(), item.slotIndex(), item.itemId(), maxBuy);
-                        }).bounds(mx + mw - 58, rowY + 6, 48, 18)
+                        }).bounds(mx + mw - 64, rowY + 6, 48, 18)
                         .tooltip(Tooltip.create(Component.literal(AmmoraLang.guiStr("market.btn_buy_n_tooltip", maxBuy, String.format(Locale.US, "%.2f", totalMax)))))
                         .build();
                         dynamicCatalogButtons.add(btnMax);
@@ -1261,19 +1261,25 @@ public class MarketplaceScreen extends Screen {
 
         // Background
         gg.fill(mx, my, mx + mw, my + mh, COLOR_BG);
-        drawOutlinedBox(gg, mx, my, mw, mh, COLOR_BORDER_CYAN);
 
         // Header Panel
         gg.fill(mx + 1, my + 1, mx + mw - 1, my + 22, COLOR_PANEL_HEADER);
-        gg.hLine(mx + 1, mx + mw - 1, my + 22, COLOR_BORDER_MUTED);
+        gg.hLine(mx + 1, mx + mw - 2, my + 22, COLOR_BORDER_MUTED);
 
         // Separator below 2nd row of tabs
-        gg.hLine(mx + 1, mx + mw - 1, my + 60, COLOR_BORDER_MUTED);
+        gg.hLine(mx + 1, mx + mw - 2, my + 60, COLOR_BORDER_MUTED);
+
+        // Outer chassis border
+        drawOutlinedBox(gg, mx, my, mw, mh, COLOR_BORDER_CYAN);
 
         gg.drawString(this.font, "§b✦ " + AmmoraLang.guiStr("market.title") + " ✦", mx + 10, my + 8, 0xFFFFFFFF);
         String balStr;
         if (useCompanyAccount && data.company() != null && data.company().hasCompany()) {
-            balStr = "§6🏢 " + String.format(Locale.US, "%.2f CBX", data.company().balanceCbx());
+            if (data.company().isOwner()) {
+                balStr = "§6🏢 " + String.format(Locale.US, "%.2f CBX", data.company().balanceCbx());
+            } else {
+                balStr = "§6🏢 " + String.format(Locale.US, "%.0f/%.0f CBX", data.company().mySpentToday(), data.company().myDailyLimit());
+            }
         } else {
             balStr = AmmoraLang.guiStr("market.header_balance_rank", String.format(Locale.US, "%.2f", data.balanceCbx()), data.repLevel());
         }
@@ -1501,7 +1507,7 @@ public class MarketplaceScreen extends Screen {
         // Bottom panel banner for creating request
         int footY = my + mh - 36;
         gg.fill(mx + 1, footY, mx + mw - 1, my + mh - 1, COLOR_PANEL_HEADER);
-        gg.hLine(mx + 1, mx + mw - 1, footY, COLOR_BORDER_MUTED);
+        gg.hLine(mx + 1, mx + mw - 2, footY, COLOR_BORDER_MUTED);
 
         // Slot preview box for selected item
         gg.fill(mx + 8, footY + 8, mx + 26, footY + 26, 0xCC090E18);
@@ -1852,11 +1858,11 @@ public class MarketplaceScreen extends Screen {
 
         // Solid Frame (100% opaque, zero bleed-through)
         gg.fill(modalX, modalY, modalX + modalW, modalY + modalH, 0xFF080D18);
-        drawOutlinedBox(gg, modalX, modalY, modalW, modalH, COLOR_BORDER_CYAN);
 
         // Header
         gg.fill(modalX + 1, modalY + 1, modalX + modalW - 1, modalY + 20, 0xFF0D1422);
-        gg.hLine(modalX + 1, modalX + modalW - 1, modalY + 20, COLOR_BORDER_MUTED);
+        gg.hLine(modalX + 1, modalX + modalW - 2, modalY + 20, COLOR_BORDER_MUTED);
+        drawOutlinedBox(gg, modalX, modalY, modalW, modalH, COLOR_BORDER_CYAN);
         gg.drawString(this.font, "§6✦ " + AmmoraLang.guiStr("auction.modal_title") + " ✦", modalX + 8, modalY + 6, 0xFFFFFFFF);
 
         // Subtitle above inventory
@@ -2017,11 +2023,11 @@ public class MarketplaceScreen extends Screen {
 
         // Solid Frame (100% opaque, zero bleed-through)
         gg.fill(modalX, modalY, modalX + modalW, modalY + modalH, 0xFF080D18);
-        drawOutlinedBox(gg, modalX, modalY, modalW, modalH, COLOR_BORDER_CYAN);
 
         // Header
         gg.fill(modalX + 1, modalY + 1, modalX + modalW - 1, modalY + 20, 0xFF0D1422);
-        gg.hLine(modalX + 1, modalX + modalW - 1, modalY + 20, COLOR_BORDER_MUTED);
+        gg.hLine(modalX + 1, modalX + modalW - 2, modalY + 20, COLOR_BORDER_MUTED);
+        drawOutlinedBox(gg, modalX, modalY, modalW, modalH, COLOR_BORDER_CYAN);
         gg.drawString(this.font, AmmoraLang.guiStr("market.picker_title"), modalX + 8, modalY + 6, 0xFFFFFFFF);
 
         // Page info
@@ -2785,10 +2791,10 @@ public class MarketplaceScreen extends Screen {
         int cmy = (this.height - cmh) / 2;
 
         gg.fill(cmx, cmy, cmx + cmw, cmy + cmh, COLOR_BG);
-        drawOutlinedBox(gg, cmx, cmy, cmw, cmh, COLOR_BORDER_CYAN);
 
         gg.fill(cmx + 1, cmy + 1, cmx + cmw - 1, cmy + 24, COLOR_PANEL_HEADER);
-        gg.hLine(cmx + 1, cmx + cmw - 1, cmy + 24, COLOR_BORDER_MUTED);
+        gg.hLine(cmx + 1, cmx + cmw - 2, cmy + 24, COLOR_BORDER_MUTED);
+        drawOutlinedBox(gg, cmx, cmy, cmw, cmh, COLOR_BORDER_CYAN);
 
         gg.drawString(this.font, "§6🚚 " + AmmoraLang.guiStr("courier.service_title"), cmx + 10, cmy + 8, 0xFFFFFFFF);
         gg.drawString(this.font, "§7" + AmmoraLang.guiStr("courier.service_subtitle"), cmx + 10, cmy + 28, COLOR_TEXT_MUTED);
@@ -2867,10 +2873,7 @@ public class MarketplaceScreen extends Screen {
     }
 
     private void drawOutlinedBox(GuiGraphics gg, int x, int y, int w, int h, int color) {
-        gg.hLine(x, x + w - 1, y, color);
-        gg.hLine(x, x + w - 1, y + h - 1, color);
-        gg.vLine(x, y, y + h - 1, color);
-        gg.vLine(x + w - 1, y, y + h - 1, color);
+        gg.renderOutline(x, y, w, h, color);
     }
 
     @Override

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "ammora:block/money_block_10_top",
+    "bottom": "ammora:block/money_block_10_bottom",
+    "side": "ammora:block/money_block_10_side"
+  }
+}

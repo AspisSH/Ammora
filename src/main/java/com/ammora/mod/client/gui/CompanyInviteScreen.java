@@ -34,7 +34,7 @@ public class CompanyInviteScreen extends Screen {
     protected void init() {
         super.init();
 
-        int mw = 320, mh = 160;
+        int mw = 360, mh = 165;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
@@ -42,13 +42,13 @@ public class CompanyInviteScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.literal("§a✔ " + AmmoraLang.guiStr("company.invite_modal_accept")), b -> {
             PacketDistributor.sendToServer(ServerboundCompanyActionPayload.acceptInvite(companyId));
             this.onClose();
-        }).bounds(mx + 20, my + mh - 30, 130, 20).build());
+        }).bounds(mx + 25, my + mh - 30, 145, 20).build());
 
         // Decline Button
         this.addRenderableWidget(Button.builder(Component.literal("§c✖ " + AmmoraLang.guiStr("company.invite_modal_decline")), b -> {
             PacketDistributor.sendToServer(ServerboundCompanyActionPayload.declineInvite(companyId));
             this.onClose();
-        }).bounds(mx + mw - 150, my + mh - 30, 130, 20).build());
+        }).bounds(mx + mw - 170, my + mh - 30, 145, 20).build());
 
         // Close button in header
         this.addRenderableWidget(Button.builder(Component.literal("§c✕"), b -> {
@@ -62,17 +62,20 @@ public class CompanyInviteScreen extends Screen {
         // Dim background
         g.fill(0, 0, this.width, this.height, 0xCC060910);
 
-        int mw = 320, mh = 160;
+        int mw = 360, mh = 165;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
         // Modal Panel
         g.fill(mx, my, mx + mw, my + mh, COLOR_PANEL);
-        renderBorder(g, mx, my, mw, mh, COLOR_BORDER_CYAN);
 
-        // Header
-        g.fill(mx, my, mx + mw, my + 22, COLOR_PANEL_HEADER);
-        renderBorder(g, mx, my, mw, 22, COLOR_BORDER_MUTED);
+        // Header Panel & separator
+        g.fill(mx + 1, my + 1, mx + mw - 1, my + 22, COLOR_PANEL_HEADER);
+        g.hLine(mx + 1, mx + mw - 2, my + 22, COLOR_BORDER_MUTED);
+
+        // Outer Frame Border drawn on top (clean 1px cyan outline including top)
+        g.renderOutline(mx, my, mw, mh, COLOR_BORDER_CYAN);
+
         g.drawString(this.font, "§6🏢 " + AmmoraLang.guiStr("company.invite_modal_title"), mx + 10, my + 7, 0xFFFFFFFF);
 
         // Content
@@ -80,8 +83,8 @@ public class CompanyInviteScreen extends Screen {
         g.drawCenteredString(this.font, "§e§l«" + companyName + "»", mx + mw / 2, my + 48, 0xFFFFFFFF);
         g.drawCenteredString(this.font, "§7" + AmmoraLang.guiStr("company.invite_modal_inviter", "§f" + inviterName), mx + mw / 2, my + 68, 0xFFFFFFFF);
 
-        g.drawCenteredString(this.font, "§8" + AmmoraLang.guiStr("company.invite_modal_info"), mx + mw / 2, my + 90, 0xFFFFFFFF);
-        g.drawCenteredString(this.font, "§8" + AmmoraLang.guiStr("company.invite_modal_info2"), mx + mw / 2, my + 102, 0xFFFFFFFF);
+        g.drawCenteredString(this.font, "§8" + AmmoraLang.guiStr("company.invite_modal_info"), mx + mw / 2, my + 92, 0xFFFFFFFF);
+        g.drawCenteredString(this.font, "§8" + AmmoraLang.guiStr("company.invite_modal_info2"), mx + mw / 2, my + 104, 0xFFFFFFFF);
 
         super.render(g, mouseX, mouseY, partialTick);
     }
@@ -104,12 +107,5 @@ public class CompanyInviteScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
-    }
-
-    private void renderBorder(GuiGraphics g, int x, int y, int w, int h, int color) {
-        g.fill(x, y, x + w, y + 1, color);
-        g.fill(x, y + h - 1, x + w, y + h, color);
-        g.fill(x, y + 1, x + 1, y + h - 1, color);
-        g.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 }
