@@ -113,7 +113,22 @@ config/ammora_custom_items.json
 3. Botania: манасталь (manasteel_ingot), террасталь (terrasteel_ingot)
 ]
 
-Сгенерируй строго валидный JSON-массив без лишнего текста вокруг, готовый к вставке в config/ammora_custom_items.json.
+Сгенерируй строго валидный JSON-массив без лишнего текста вокруг.
+пример того как должен выглядеть JSON-объект в массиве:
+```json
+{
+  "resourceId": "create:brass_ingot",
+  "displayName": "Brass Ingot / Латунный слиток",
+  "basePrice": 28.0,
+  "targetReserve": 6000.0,
+  "currentStock": 6000.0,
+  "elasticity": 0.85,
+  "maxReserve": 10000.0,
+  "disposalAlpha": 20.0,
+  "feeRate": 0.02,
+  "minPriceFloor": 0.20,
+  "enabled": true
+}
 ```
 
 ---

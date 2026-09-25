@@ -115,5 +115,20 @@ Here is the list of items and mods I want to add:
 3. Botania: manasteel ingot (manasteel_ingot), terrasteel ingot (terrasteel_ingot)
 ]
 
-Generate a strictly valid JSON array with no extra wrapper text, ready to paste into config/ammora_custom_items.json.
+Generate a strictly valid JSON array with no extra wrapper text.
+example of json object in array:
+
+{
+  "resourceId": "create:brass_ingot",
+  "displayName": "Brass Ingot / Латунный слиток",
+  "basePrice": 28.0,
+  "targetReserve": 6000.0,
+  "currentStock": 6000.0,
+  "elasticity": 0.85,
+  "maxReserve": 10000.0,
+  "disposalAlpha": 20.0,
+  "feeRate": 0.02,
+  "minPriceFloor": 0.20,
+  "enabled": true
+}
 ```
