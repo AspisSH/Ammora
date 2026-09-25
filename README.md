@@ -28,6 +28,7 @@ No more infinite money from automated iron or gold farms: prices continuously re
 - **Courier Bee Deliveries**: Visualized physical delivery with a courier bee flying items directly into player hands (with automatic safe buffering in SQLite if offline or inventory is full).
 - **Secure P2P Direct Trading**: 2-player synchronized escrow trade windows with Anti-Scam safeguards (lock timers, auto-unlock on offer changes, balance checks).
 - **Cold Wallet & Proximity Transfers**: Portable NFC wallet with nearby player detection, instant 0-fee transfers, corporate account switching, and a 30-day transaction history ledger.
+- **Physical Currency & ATM Terminal**: Banknotes (10, 100, 1000 CBX), money stacks, and decorative cash blocks. Includes an industrial 2-block tall ATM terminal for cash deposits and withdrawals, live cash breakdown calculations, automated inventory deposits, and corporate daily spending limit enforcement.
 - **Create & CC:Tweaked Integration**: 
   - **Create**: Kinetic rotational speed scales dock trading frequency; Display Links project live quotes onto flapped display boards; interactive 3D Ponder scenes included.
   - **CC: Tweaked**: Full Lua peripheral API to build algorithmic trading bots, automated arbitrage routers, and wall-mounted stock tickers.
@@ -79,11 +80,13 @@ Selling surplus goods beyond $S_{max}$ charges the player a waste processing fee
 | Block / Item | Description |
 | :--- | :--- |
 | **Exchange Terminal** | Main trading workstation with real-time candlestick charts, order book, OMS management, limit orders, contracts, and redstone output. |
+| **ATM Terminal** | 2-block industrial banking terminal for depositing and withdrawing physical CBX banknotes with corporate budget limits. |
 | **Trade Dock** | High-speed item import/export automation interface. Connects to hoppers, belts, and funnels. Compatible with Create kinetic shafts and corporate accounts (Shift+RMB). |
 | **Purchase Dock** | Automated resource buyer. Transits items from the exchange into local inventory with Stop-High price guards and personal/corporate billing toggle. |
 | **Player Shop** | Rust-style vending machine block. Supports custom prices, stock upgrades, satellite broadcasting, and automatic revenue routing to corporate treasury. |
 | **Cold Wallet** | Handheld biometric device for CBX account balance, ledger history, personal/corporate account toggle, and wireless P2P player-to-player transfers. |
 | **Marketplace Tablet**| Remote marketplace tablet with 8 tabs: catalog shopping, shops directory, live auctions, RFQ escrow orders, community quests, company management, and courier bee deliveries. |
+| **CBX Banknotes** | Physical cash currency (10, 100, 1000 CBX), money stacks, and decorative cash blocks with complete crafting recipes. |
 
 ---
 

@@ -22,6 +22,8 @@ Welcome to **Ammora** — a mod that transforms the Minecraft economy into a dyn
    - [Live Auction House](#27-live-auction-house)
    - [Corporations & Joint Accounts](#28-corporations--joint-accounts)
    - [Courier Bee Delivery](#29-courier-bee-delivery)
+   - [ATM Terminal](#210-atm-terminal)
+   - [Physical Currency (Banknotes, Stacks, Blocks)](#211-physical-currency-banknotes-stacks-blocks)
 3. [Create Mod Integration](#3-create-mod-integration)
    - [Kinetic Dock Acceleration](#31-kinetic-dock-acceleration)
    - [Display Link: Live Quotes on Flap Boards](#32-display-link-live-quotes-on-flap-boards)
@@ -164,14 +166,28 @@ Create business entities, share capital, and delegate enterprise operations:
   - `OWNER`: Full administrative control, employee invitations/expulsions, role promotions, budget limit management, and treasury withdrawals.
   - `MANAGER`: Authorized to spend company funds up to a configurable daily spending limit (`daily_limit`), link machines, and execute purchasing contracts. Cannot invite new members or promote staff.
   - `MEMBER`: View corporate financial metrics, audit transaction history, and participate in corporate projects without access to direct treasury withdrawals.
-- **Daily Manager Limit:** Owners can enforce per-manager spending quotas that reset every 24 real hours, protecting company assets from overspending.
-- **Full Audit Ledger:** Every deposit, withdrawal, automated dock transfer, and tablet purchase is logged in the company ledger with exact timestamps and member attribution.
-- **Full Automation Integration:** Trade Docks, Purchase Docks, Player Shops, and Cold Wallets can all be linked to corporate accounts.
+- **Daily Member Limit & Live Tracking:** Owners can enforce per-member daily spending quotas (`daily_limit`) resetting every 24 hours. When switching to a corporate account in the Tablet or ATM, members see their active spending budget: `5/100 CBX` (spent today / daily limit).
+- **Company Invite Dialog (CompanyInviteScreen):** Invited players receive a dedicated modal window detailing company name, inviter, and role terms before accepting or declining.
+- **Full Audit Ledger:** Every deposit, withdrawal, automated dock transfer, tablet purchase, and ATM transaction (`ATM_WITHDRAW`, `ATM_DEPOSIT`) is logged in the company ledger with exact timestamps and member attribution.
+- **Full Automation Integration:** Trade Docks, Purchase Docks, Player Shops, Cold Wallets, and ATM terminals can all be linked to corporate accounts.
 
 ### 2.9. Courier Bee Delivery
-Physical drone delivery mechanic with fail-safe buffering:
+Physical courier delivery mechanic with fail-safe buffering:
 - When a remote purchase is confirmed on the Market Tablet, an autonomous **Courier Bee** spawns in the world and flies directly to the buyer's coordinates.
 - **Fail-Safe Fallback:** If the player is offline, across dimensions, or obstructed, items are safely routed to the **Deliveries Buffer** tab in the Market Tablet, where they can be claimed anytime.
+
+### 2.10. ATM Terminal
+Industrial 2-block tall terminal built with polished deepslate and brass accents for cash banking:
+- **Personal & Corporate Accounts:** Easily toggle between `[Personal]` and `[Corporate]` accounts. Non-owner corporate members are subject to daily spending limits.
+- **Cash Withdrawal:** Numeric input field with automatic round-up to multiples of 10 CBX upon Enter or unfocus. Includes 2-column quick preset buttons (`[10]`, `[50]`, `[100]`, `[500]`, `[1,000]`, `[5,000 CBX]`) and a real-time denomination breakdown calculator card (1000, 100, 10 CBX notes).
+- **Cash Deposit:** Single-click **"Deposit All Cash"** button automatically tallies and deposits all CBX banknotes from player inventory, instantly updating slots and balances.
+- **Audit Tracking:** All corporate cash withdrawals and deposits are permanently recorded in the company audit ledger.
+
+### 2.11. Physical Currency (Banknotes, Stacks, Blocks)
+Material CBX currency for physical player trading:
+- **Banknotes (10, 100, 1000 CBX):** Distinctive industrial bills (Zinc 10, Cyan 100, Brass 1000).
+- **Money Stacks:** Compact 9-note bundles (3x3 crafting grid). Unpackable back to 9 banknotes.
+- **Money Blocks:** Solid decorative currency blocks for high-value vault storage (9 money stacks in crafting table). Unpackable back to 9 money stacks.
 
 ---
 

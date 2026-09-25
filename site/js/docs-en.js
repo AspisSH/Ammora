@@ -27,7 +27,8 @@ window.DOCS_EN = {
         { id: "blocks-terminal", title: "Exchange Terminal", icon: "monitor" },
         { id: "blocks-logistics", title: "Trade & Purchase Docks", icon: "package" },
         { id: "cold-wallet", title: "Cold Wallet & P2P", icon: "credit-card" },
-        { id: "vending-marketplace", title: "Vending Machine & Market", icon: "shopping-bag" }
+        { id: "vending-marketplace", title: "Vending Machine & Market", icon: "shopping-bag" },
+        { id: "atm-cash", title: "ATM & Physical Cash", icon: "dollar-sign" }
       ]
     },
     {
@@ -467,6 +468,79 @@ window.DOCS_EN = {
           <li>Remote purchases delivered to the secure delivery buffer.</li>
           <li>Post Request-For-Quote (RFQ) buy orders.</li>
         </ul>
+      `
+    },
+
+    "atm-cash": {
+      title: "ATM Terminal & Physical Cash",
+      subtitle: "2-block tall industrial banking terminal, physical banknotes, live cash breakdown, and corporate budgets.",
+      breadcrumbs: ["Gameplay Mechanics", "ATM & Cash"],
+      html: `
+        <h2>1. ATM Terminal</h2>
+        <p>The <strong>ATM Terminal</strong> (<code>ammora:atm</code>) is a 2-block tall industrial banking station crafted with polished deepslate and brass accents for cash banking:</p>
+        <ul>
+          <li><strong>World Placement:</strong> 2 blocks high. Placing the bottom block automatically deploys the matching top unit with seamless industrial styling.</li>
+          <li><strong>Account Switching:</strong> Easily toggle between personal wallet and corporate treasury in the upper header.</li>
+          <li><strong>Corporate Budget Enforcement:</strong> Non-owner corporate members are subject to daily spending limits, displayed dynamically (e.g. <code>5/100 CBX</code>).</li>
+        </ul>
+
+        <h2>2. Cash Withdrawal</h2>
+        <p>Convert digital CBX account balance into physical banknotes:</p>
+        <ul>
+          <li><strong>Auto-Adjustment:</strong> Entered amounts automatically snap to multiples of 10 CBX upon pressing Enter, losing focus, or clicking Withdraw.</li>
+          <li><strong>Preset Grid:</strong> Quick selection buttons in a clean 2-column layout: <code>[10]</code>, <code>[50]</code>, <code>[100]</code>, <code>[500]</code>, <code>[1,000]</code>, <code>[5,000 CBX]</code>.</li>
+          <li><strong>Breakdown Card:</strong> Dynamically calculates and displays the exact count of 1000, 100, and 10 CBX banknotes received.</li>
+        </ul>
+
+        <h2>3. Cash Deposit</h2>
+        <p>Deposit physical cash back into digital account balances:</p>
+        <ul>
+          <li><strong>"Deposit All Cash" Button:</strong> Automatically scans player inventory for 10, 100, and 1000 CBX banknotes, tallies total sum on the button, and credits the balance in one click.</li>
+          <li><strong>Inventory Sync:</strong> Real-time container sync removes cash from slots and updates button states immediately.</li>
+        </ul>
+
+        <h2>4. Physical Currency (Banknotes, Stacks, Blocks)</h2>
+        <div class="table-responsive">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Denomination</th>
+                <th>Description & Recipes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>10 CBX Banknote</strong></td>
+                <td>10 CBX</td>
+                <td>Zinc-tinted industrial bill with CBX insignia. Base unit.</td>
+              </tr>
+              <tr>
+                <td><strong>100 CBX Banknote</strong></td>
+                <td>100 CBX</td>
+                <td>Cyan-tinted currency note with distinctive monetary emblem.</td>
+              </tr>
+              <tr>
+                <td><strong>1 000 CBX Banknote</strong></td>
+                <td>1 000 CBX</td>
+                <td>High-value brass/gold bill for large-scale commerce.</td>
+              </tr>
+              <tr>
+                <td><strong>Money Stack</strong></td>
+                <td>90 / 900 / 9 000 CBX</td>
+                <td>Compact bundle of 9 banknotes (3x3 crafting grid). Crafting back returns 9 banknotes.</td>
+              </tr>
+              <tr>
+                <td><strong>Money Block</strong></td>
+                <td>810 / 8 100 / 81 000 CBX</td>
+                <td>Solid decorative currency block formed from 9 money stacks for bank vaults. Reversible into 9 stacks.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>5. Corporate Audit Tracking</h2>
+        <p>All corporate cash deposits and withdrawals are permanently recorded in the immutable company audit ledger as <code>ATM_WITHDRAW</code> and <code>ATM_DEPOSIT</code> with exact member attribution and amounts.</p>
       `
     },
 

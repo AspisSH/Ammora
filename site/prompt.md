@@ -86,19 +86,26 @@ Synthetic commodity accounts: players can invest CBX into raw commodities withou
 - Community Quests: custom task and labor bounties.
 - Offline Deliveries Buffer: 10-slot safe storage buffer for items received while offline or when inventory was full.
 
+### 2.7. ATM Terminal & Physical Currency (`ammora:atm`)
+- 2-block tall industrial banking terminal (polished deepslate & brass).
+- Personal and Corporate account balance switching with real-time employee daily limit status (`5/100 CBX`).
+- Numeric cash withdrawal input with automatic multiples-of-10 round-up, 2-column preset grid, and real-time banknote breakdown.
+- Single-click "Deposit All Cash" button with automated inventory scanning and slot synchronization.
+- **Physical Banknotes**: 10, 100, 1000 CBX bills, compact 9-note money stacks, and solid decorative money blocks.
+
 ---
 
 ## 3. Corporations & Joint Accounts
 
 Players can form corporate entities with shared capital and automated operational routing:
-- **Registration**: Performed via the `[🏢 Corporation]` tab on the tablet. Requires a server-configured registration fee (default: 500.0 CBX).
+- **Registration & Invitations**: Performed via the `[🏢 Corporation]` tab on the tablet. Invited players receive a dedicated confirmation dialog (`CompanyInviteScreen`).
 - **Roles**:
   - `OWNER`: Full control, staff invitations, role promotions, budget limits, withdrawals, company dissolution.
   - `MANAGER`: Spend corporate funds up to a daily limit (`daily_limit_cbx`), execute contracts, link vending machines. Cannot invite or kick members.
   - `MEMBER`: Deposit personal funds into corporate treasury, view financial reports and ledger audit.
-- **Daily Manager Spending Limit**: Quota resetting every 24 real hours.
-- **Audit Ledger**: Immutable transaction history logged in SQLite (`company_ledger`).
-- **Automation Integration**: Trade Docks, Purchase Docks, and Player Vending Machines can route all cash flows directly through the corporate treasury.
+- **Daily Member Spending Limit**: Individual spending quota resetting every 24 hours, enforced in Tablet shopping and ATM cash withdrawals.
+- **Audit Ledger**: Immutable transaction history logged in SQLite (`company_ledger`), tracking all trades, purchases, and `ATM_WITHDRAW` / `ATM_DEPOSIT` actions.
+- **Automation Integration**: Trade Docks, Purchase Docks, Player Vending Machines, and ATM terminals can route all cash flows directly through the corporate treasury.
 
 ---
 

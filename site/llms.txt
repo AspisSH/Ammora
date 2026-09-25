@@ -13,6 +13,7 @@
 - [Logistics Docks](index.html#blocks-logistics): Trade dock, purchase dock, and kinetic acceleration.
 - [Cold Wallet & P2P](index.html#cold-wallet): Handheld biometric wallet and NFC transfers.
 - [Vending Machines & Marketplace](index.html#vending-marketplace): Showcase shops and 8-tab tablet.
+- [ATM & Physical Cash](index.html#atm-cash): Industrial ATM terminal, banknotes, money stacks, and blocks.
 - [CC: Tweaked Integration](index.html#cc-tweaked): Lua API methods, events, and automated trading bots.
 - [Create Mod](index.html#create-mod): Kinetic dock acceleration and Flap Display Link.
 - [Datapacks Guide](index.html#datapacks): Custom commodity schemas and price curve calibration.
