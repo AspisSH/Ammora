@@ -171,7 +171,7 @@ Requirements:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/Ammora.git
+git clone https://github.com/AspisSH/Ammora.git
 cd Ammora
 
 # Run unit tests
@@ -181,7 +181,7 @@ cd Ammora
 ./gradlew build
 ```
 
-Built jar will be located in `build/libs/exchange-<version>.jar`.
+Built jar will be located in `build/libs/ammora-1.21.1-neoforge-1.0.0.jar`.
 
 ---
 

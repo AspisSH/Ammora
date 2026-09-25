@@ -166,13 +166,13 @@ end
 - Git
 
 ```bash
-git clone https://github.com/your-username/Ammora.git
+git clone https://github.com/AspisSH/Ammora.git
 cd Ammora
 ./gradlew test
 ./gradlew build
 ```
 
-Скомпилированный файл мода находится в `build/libs/exchange-<version>.jar`.
+Скомпилированный файл мода находится в `build/libs/ammora-1.21.1-neoforge-1.0.0.jar`.
 
 ---
 
